@@ -7,31 +7,36 @@ export const CHARACTERS = ["normal", "joy", "mad", "sad"] as const;
 export type SheepCharacter = (typeof CHARACTERS)[number];
 export type SheepAnimationState = "idle" | "walk";
 
-const SHEETS: Record<
-  SheepCharacter,
-  Record<SheepAnimationState, ImageSourcePropType>
-> = {
-  normal: {
-    idle: require("../assets/spriteSheets/normal_idle.png"),
-    walk: require("../assets/spriteSheets/normal_walk.png"),
-  },
-  joy: {
-    idle: require("../assets/spriteSheets/joy_idle.png"),
-    walk: require("../assets/spriteSheets/joy_walk.png"),
-  },
-  mad: {
-    idle: require("../assets/spriteSheets/mad_idle.png"),
-    walk: require("../assets/spriteSheets/mad_walk.png"),
-  },
-  sad: {
-    idle: require("../assets/spriteSheets/sad_idle.png"),
-    walk: require("../assets/spriteSheets/sad_walk.png"),
-  },
+export const CHARACTER_COLORS: Record<SheepCharacter, string> = {
+  normal: "#63FF80",
+  joy: "#FFE063",
+  mad: "#FF6366",
+  sad: "#63BEFF",
 };
 
 const HEAD_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
   idle: require("../assets/spriteSheets/head_idle.png"),
   walk: require("../assets/spriteSheets/head_walk.png"),
+};
+
+const HORN_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
+  idle: require("../assets/spriteSheets/horn_idle.png"),
+  walk: require("../assets/spriteSheets/horn_walk.png"),
+};
+
+const ARM_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
+  idle: require("../assets/spriteSheets/arm_idle.png"),
+  walk: require("../assets/spriteSheets/arm_walk.png"),
+};
+
+const BODY_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
+  idle: require("../assets/spriteSheets/body_idle.png"),
+  walk: require("../assets/spriteSheets/body_walk.png"),
+};
+
+const LEG_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
+  idle: require("../assets/spriteSheets/leg_idle.png"),
+  walk: require("../assets/spriteSheets/leg_walk.png"),
 };
 
 const FRAME_COUNTS: Record<SheepAnimationState, number> = {
@@ -83,9 +88,10 @@ export function SheepSprite({
 
   const size = FRAME_SIZE * scale;
 
-  const renderLayer = (
+  const renderFrames = (
     layerKey: string,
     sourceFor: (key: SheepAnimationState) => ImageSourcePropType,
+    tintColor?: string,
   ) =>
     STATES.map((key) => {
       const isActive = key === displayState;
@@ -100,6 +106,7 @@ export function SheepSprite({
               height: size,
               opacity: isActive ? 1 : 0,
               transform: [{ translateX: -(isActive ? frame : 0) * size }],
+              tintColor,
             },
           ]}
           resizeMode="stretch"
@@ -107,10 +114,31 @@ export function SheepSprite({
       );
     });
 
+  // A colored part is rendered as two stacked layers: a solid tint clipped
+  // to the sprite's own alpha shape, with the original shading multiplied
+  // on top so the light/dark detail from the source art is kept.
+  const renderColoredPart = (
+    partKey: string,
+    sheets: Record<SheepAnimationState, ImageSourcePropType>,
+  ) => (
+    <>
+      <View style={styles.layer}>
+        {renderFrames(`${partKey}-tint`, (key) => sheets[key], CHARACTER_COLORS[character])}
+      </View>
+      <View style={[styles.layer, styles.multiply]}>
+        {renderFrames(`${partKey}-shade`, (key) => sheets[key])}
+      </View>
+    </>
+  );
+
   return (
     <View style={[styles.viewport, { width: size, height: size }]}>
-      {renderLayer("body", (key) => SHEETS[character][key])}
-      {renderLayer("head", (key) => HEAD_SHEETS[key])}
+      {/* Rendered back-to-front: leg, body, arm, horn, head. */}
+      {renderFrames("leg", (key) => LEG_SHEETS[key])}
+      {renderColoredPart("body", BODY_SHEETS)}
+      {renderFrames("arm", (key) => ARM_SHEETS[key])}
+      {renderColoredPart("horn", HORN_SHEETS)}
+      {renderFrames("head", (key) => HEAD_SHEETS[key])}
     </View>
   );
 }
@@ -118,6 +146,12 @@ export function SheepSprite({
 const styles = StyleSheet.create({
   viewport: {
     overflow: "hidden",
+  },
+  layer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  multiply: {
+    mixBlendMode: "multiply",
   },
   sheet: {
     position: "absolute",

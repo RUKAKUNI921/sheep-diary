@@ -21,7 +21,15 @@ export function RoamingSheep({ character }: RoamingSheepProps) {
   const currentPos = useRef({ x: 0, y: 0 });
   const [walking, setWalking] = useState(false);
   const [facingLeft, setFacingLeft] = useState(false);
+  const [zIndex, setZIndex] = useState(0);
   const walkStartResolver = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const id = position.y.addListener(({ value }) => {
+      setZIndex(Math.round(value));
+    });
+    return () => position.y.removeListener(id);
+  }, [position]);
 
   const handleSpriteStateChange = (state: "idle" | "walk") => {
     if (state === "walk" && walkStartResolver.current) {
@@ -85,7 +93,10 @@ export function RoamingSheep({ character }: RoamingSheepProps) {
 
   return (
     <Animated.View
-      style={[styles.sheepWrapper, { transform: position.getTranslateTransform() }]}
+      style={[
+        styles.sheepWrapper,
+        { zIndex, transform: position.getTranslateTransform() },
+      ]}
     >
       <View style={{ transform: [{ scaleX: facingLeft ? -1 : 1 }] }}>
         <SheepSprite

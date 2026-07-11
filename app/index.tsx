@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     gap: 12,
+    zIndex: 9999,
   },
   button: {
     backgroundColor: "#4CAF50",
