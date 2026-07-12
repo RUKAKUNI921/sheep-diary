@@ -1,65 +1,135 @@
 import { useEffect, useRef, useState } from "react";
 import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 
-const FRAME_SIZE = 300;
+const FRAME_SIZE = 1080;
+const FRAME_COUNT = 6;
 
-export const CHARACTERS = ["normal", "joy", "mad", "sad"] as const;
-export type SheepCharacter = (typeof CHARACTERS)[number];
+export const BODY_LEVELS = [1, 3, 5] as const;
+export type BodyLevel = (typeof BODY_LEVELS)[number];
+
+export const BODY_SIZES = [1, 2, 3, 4, 5] as const;
+export type BodySize = (typeof BODY_SIZES)[number];
+
+export const EYE_VARIANTS = [
+  "hiraku",
+  "gurasan",
+  "jitome",
+  "kawai",
+  "kiran",
+  "mayuge",
+  "megane",
+  "nemu",
+  "retro",
+  "shirome",
+] as const;
+export type EyeVariant = (typeof EYE_VARIANTS)[number];
+
 export type SheepAnimationState = "idle" | "walk";
-
-export const CHARACTER_COLORS: Record<SheepCharacter, string> = {
-  normal: "#63FF80",
-  joy: "#FFE063",
-  mad: "#FF6366",
-  sad: "#63BEFF",
-};
-
-const HEAD_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
-  idle: require("../assets/spriteSheets/head_idle.png"),
-  walk: require("../assets/spriteSheets/head_walk.png"),
-};
-
-const HORN_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
-  idle: require("../assets/spriteSheets/horn_idle.png"),
-  walk: require("../assets/spriteSheets/horn_walk.png"),
-};
-
-const ARM_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
-  idle: require("../assets/spriteSheets/arm_idle.png"),
-  walk: require("../assets/spriteSheets/arm_walk.png"),
-};
-
-const BODY_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
-  idle: require("../assets/spriteSheets/body_idle.png"),
-  walk: require("../assets/spriteSheets/body_walk.png"),
-};
-
-const LEG_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
-  idle: require("../assets/spriteSheets/leg_idle.png"),
-  walk: require("../assets/spriteSheets/leg_walk.png"),
-};
-
-const FRAME_COUNTS: Record<SheepAnimationState, number> = {
-  idle: 2,
-  walk: 4,
-};
-
-const FRAME_DURATIONS_MS: Record<SheepAnimationState, number> = {
-  idle: 400,
-  walk: 150,
-};
 
 const STATES: SheepAnimationState[] = ["idle", "walk"];
 
+// leg, body-tint, body-shade, arm, head, eye, each rendering idle + walk.
+const TOTAL_LAYER_IMAGES = 6 * STATES.length;
+
+function sameForBoth(
+  source: ImageSourcePropType,
+): Record<SheepAnimationState, ImageSourcePropType> {
+  return { idle: source, walk: source };
+}
+
+// Body doesn't have separate walk art yet, so the same sheet is used for
+// both idle and walk.
+const BODY_SHEETS: Record<
+  BodyLevel,
+  Record<BodySize, Record<SheepAnimationState, ImageSourcePropType>>
+> = {
+  1: {
+    1: sameForBoth(require("../assets/character/body/lv1/lv1-sz1.png")),
+    2: sameForBoth(require("../assets/character/body/lv1/lv1-sz2.png")),
+    3: sameForBoth(require("../assets/character/body/lv1/lv1-sz3.png")),
+    4: sameForBoth(require("../assets/character/body/lv1/lv1-sz4.png")),
+    5: sameForBoth(require("../assets/character/body/lv1/lv1-sz5.png")),
+  },
+  3: {
+    1: sameForBoth(require("../assets/character/body/lv3/lv3-sz1.png")),
+    2: sameForBoth(require("../assets/character/body/lv3/lv3-sz2.png")),
+    3: sameForBoth(require("../assets/character/body/lv3/lv3-sz3.png")),
+    4: sameForBoth(require("../assets/character/body/lv3/lv3-sz4.png")),
+    5: sameForBoth(require("../assets/character/body/lv3/lv3-sz5.png")),
+  },
+  5: {
+    1: sameForBoth(require("../assets/character/body/lv5/lv5-sz1.png")),
+    2: sameForBoth(require("../assets/character/body/lv5/lv5-sz2.png")),
+    3: sameForBoth(require("../assets/character/body/lv5/lv5-sz3.png")),
+    4: sameForBoth(require("../assets/character/body/lv5/lv5-sz4.png")),
+    5: sameForBoth(require("../assets/character/body/lv5/lv5-sz5.png")),
+  },
+};
+
+const ARM_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
+  idle: require("../assets/character/arm/arm-stop.png"),
+  walk: require("../assets/character/arm/arm-walk.png"),
+};
+
+const LEG_SHEETS: Record<SheepAnimationState, ImageSourcePropType> = {
+  idle: require("../assets/character/leg/leg-stop.png"),
+  walk: require("../assets/character/leg/leg-walk.png"),
+};
+
+const HEAD_SHEETS = sameForBoth(require("../assets/character/head/head.png"));
+
+const EYE_SHEETS: Record<
+  EyeVariant,
+  Record<SheepAnimationState, ImageSourcePropType>
+> = {
+  hiraku: sameForBoth(require("../assets/character/eye/eye-hiraku.png")),
+  gurasan: sameForBoth(require("../assets/character/eye/eye-gurasan.png")),
+  jitome: sameForBoth(require("../assets/character/eye/eye-jitome.png")),
+  kawai: sameForBoth(require("../assets/character/eye/eye-kawai.png")),
+  kiran: sameForBoth(require("../assets/character/eye/eye-kiran.png")),
+  mayuge: sameForBoth(require("../assets/character/eye/eye-mayuge.png")),
+  megane: sameForBoth(require("../assets/character/eye/eye-megane.png")),
+  nemu: sameForBoth(require("../assets/character/eye/eye-nemu.png")),
+  retro: sameForBoth(require("../assets/character/eye/eye-retro.png")),
+  shirome: sameForBoth(require("../assets/character/eye/eye-shirome.png")),
+};
+
+const FRAME_DURATIONS_MS: Record<SheepAnimationState, number> = {
+  idle: 150,
+  walk: 150,
+};
+
+// A full walk cycle (all frames once). Movement distance should be a
+// multiple of this so a walk always ends back at a neutral pose instead of
+// stopping mid-stride.
+export const WALK_CYCLE_MS = FRAME_COUNT * FRAME_DURATIONS_MS.walk;
+
+export const DEFAULT_BODY_COLOR = "#FE2C59";
+
+export const BODY_COLOR_PRESETS = [
+  "#FE2C59",
+  "#FE6FEF",
+  "#EBAB2F",
+  "#32D27A",
+  "#12BFEA",
+  "#9731FF",
+] as const;
+
 type SheepSpriteProps = {
-  character: SheepCharacter;
+  bodyLevel: BodyLevel;
+  bodySize: BodySize;
+  eye: EyeVariant;
+  bodyColor?: string;
   state: SheepAnimationState;
   scale?: number;
   onStateChange?: (state: SheepAnimationState) => void;
 };
 
 export function SheepSprite({
-  character,
+  bodyLevel,
+  bodySize,
+  eye,
+  bodyColor = DEFAULT_BODY_COLOR,
   state,
   scale = 1,
   onStateChange,
@@ -70,12 +140,14 @@ export function SheepSprite({
   targetState.current = state;
   const onStateChangeRef = useRef(onStateChange);
   onStateChangeRef.current = onStateChange;
+  const [loadedCount, setLoadedCount] = useState(0);
+  const ready = loadedCount >= TOTAL_LAYER_IMAGES;
+  const handleImageLoad = () => setLoadedCount((count) => count + 1);
 
   useEffect(() => {
-    const frameCount = FRAME_COUNTS[displayState];
     const id = setInterval(() => {
       setFrame((prev) => {
-        const next = (prev + 1) % frameCount;
+        const next = (prev + 1) % FRAME_COUNT;
         if (next === 0 && targetState.current !== displayState) {
           setDisplayState(targetState.current);
           onStateChangeRef.current?.(targetState.current);
@@ -90,7 +162,7 @@ export function SheepSprite({
 
   const renderFrames = (
     layerKey: string,
-    sourceFor: (key: SheepAnimationState) => ImageSourcePropType,
+    sheets: Record<SheepAnimationState, ImageSourcePropType>,
     tintColor?: string,
   ) =>
     STATES.map((key) => {
@@ -98,11 +170,12 @@ export function SheepSprite({
       return (
         <Image
           key={`${layerKey}-${key}`}
-          source={sourceFor(key)}
+          source={sheets[key]}
+          onLoad={handleImageLoad}
           style={[
             styles.sheet,
             {
-              width: FRAME_SIZE * FRAME_COUNTS[key] * scale,
+              width: FRAME_SIZE * FRAME_COUNT * scale,
               height: size,
               opacity: isActive ? 1 : 0,
               transform: [{ translateX: -(isActive ? frame : 0) * size }],
@@ -114,31 +187,28 @@ export function SheepSprite({
       );
     });
 
-  // A colored part is rendered as two stacked layers: a solid tint clipped
-  // to the sprite's own alpha shape, with the original shading multiplied
-  // on top so the light/dark detail from the source art is kept.
-  const renderColoredPart = (
-    partKey: string,
-    sheets: Record<SheepAnimationState, ImageSourcePropType>,
-  ) => (
-    <>
-      <View style={styles.layer}>
-        {renderFrames(`${partKey}-tint`, (key) => sheets[key], CHARACTER_COLORS[character])}
-      </View>
-      <View style={[styles.layer, styles.multiply]}>
-        {renderFrames(`${partKey}-shade`, (key) => sheets[key])}
-      </View>
-    </>
-  );
+  const bodySheets = BODY_SHEETS[bodyLevel][bodySize];
 
   return (
-    <View style={[styles.viewport, { width: size, height: size }]}>
-      {/* Rendered back-to-front: leg, body, arm, horn, head. */}
-      {renderFrames("leg", (key) => LEG_SHEETS[key])}
-      {renderColoredPart("body", BODY_SHEETS)}
-      {renderFrames("arm", (key) => ARM_SHEETS[key])}
-      {renderColoredPart("horn", HORN_SHEETS)}
-      {renderFrames("head", (key) => HEAD_SHEETS[key])}
+    <View
+      style={[
+        styles.viewport,
+        { width: size, height: size, opacity: ready ? 1 : 0 },
+      ]}
+    >
+      {/* Rendered back-to-front: leg, body, arm, head, eye. */}
+      {renderFrames("leg", LEG_SHEETS)}
+      {/* Body color: a solid tint clipped to the sprite's alpha shape, with
+          the original shading multiplied on top to keep light/dark detail. */}
+      <View style={styles.layer}>
+        {renderFrames("body-tint", bodySheets, bodyColor)}
+      </View>
+      <View style={[styles.layer, styles.multiply]}>
+        {renderFrames("body-shade", bodySheets)}
+      </View>
+      {renderFrames("arm", ARM_SHEETS)}
+      {renderFrames("head", HEAD_SHEETS)}
+      {renderFrames("eye", EYE_SHEETS[eye])}
     </View>
   );
 }
