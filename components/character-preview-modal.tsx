@@ -24,13 +24,16 @@ const PREVIEW_SCALE = 200 / 1080;
 type CharacterPreviewModalProps = {
   visible: boolean;
   onClose: () => void;
+  eye: EyeVariant;
+  onSelectEye: (eye: EyeVariant) => void;
 };
 
 export function CharacterPreviewModal({
   visible,
   onClose,
+  eye,
+  onSelectEye,
 }: CharacterPreviewModalProps) {
-  const [eye, setEye] = useState<EyeVariant>(EYE_VARIANTS[0]);
   const [bodySize, setBodySize] = useState<BodySize>(BODY_SIZES[0]);
   const [bodyLevel, setBodyLevel] = useState<BodyLevel>(BODY_LEVELS[0]);
   const [bodyColor, setBodyColor] = useState<string>(BODY_COLOR_PRESETS[0]);
@@ -88,13 +91,13 @@ export function CharacterPreviewModal({
               ))}
             </View>
 
-            <Text style={styles.label}>目</Text>
+            <Text style={styles.label}>目（全ての羊に反映されます）</Text>
             <View style={styles.row}>
               {EYE_VARIANTS.map((option) => (
                 <Pressable
                   key={option}
                   style={[styles.chip, eye === option && styles.chipActive]}
-                  onPress={() => setEye(option)}
+                  onPress={() => onSelectEye(option)}
                 >
                   <Text
                     style={[

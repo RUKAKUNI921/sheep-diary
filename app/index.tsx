@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CharacterPreviewModal } from "../components/character-preview-modal";
 import { IsometricBackground } from "../components/isometric-background";
@@ -12,12 +13,15 @@ import {
   EYE_VARIANTS,
   EyeVariant,
 } from "../components/sheep-sprite";
+import { useAuth } from "../contexts/auth-context";
+import { supabase } from "../lib/supabase";
+import { diaryToSheepAppearance } from "../lib/sheep-mapping";
+import { listVoiceDiaries } from "../lib/voice-diary-api";
 
 type SheepEntry = {
-  id: number;
+  id: string;
   bodyLevel: BodyLevel;
   bodySize: BodySize;
-  eye: EyeVariant;
   bodyColor: string;
 };
 
@@ -25,46 +29,100 @@ function pickRandom<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+function isEyeVariant(value: unknown): value is EyeVariant {
+  return EYE_VARIANTS.includes(value as EyeVariant);
+}
+
 export default function Index() {
-  const [sheep, setSheep] = useState<SheepEntry[]>([]);
+  const router = useRouter();
+  const { session } = useAuth();
+  const [randomSheep, setRandomSheep] = useState<SheepEntry[]>([]);
+  const [diarySheep, setDiarySheep] = useState<SheepEntry[]>([]);
+  const [globalEye, setGlobalEye] = useState<EyeVariant>(EYE_VARIANTS[0]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const nextId = useRef(0);
 
+  useEffect(() => {
+    // user.idが変わった時（サインイン/サインアウト/別ユーザー）だけ保存済みの目を復元する。
+    // eye_variant自体を依存に入れると、自分でupdateUserした直後に再同期して選択が揺れ戻る。
+    const savedEye = session?.user.user_metadata?.eye_variant;
+    if (isEyeVariant(savedEye)) {
+      setGlobalEye(savedEye);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!session) {
+        setDiarySheep([]);
+        return;
+      }
+      listVoiceDiaries()
+        .then((diaries) => {
+          setDiarySheep(
+            diaries.map((diary) => ({
+              id: `diary-${diary.id}`,
+              ...diaryToSheepAppearance(diary),
+            })),
+          );
+        })
+        .catch(() => {
+          // 羊表示はおまけ機能のため、取得失敗時は静かに無視する
+        });
+    }, [session]),
+  );
+
+  const selectEye = (eye: EyeVariant) => {
+    setGlobalEye(eye);
+    if (session) {
+      supabase.auth.updateUser({ data: { eye_variant: eye } });
+    }
+  };
+
   const addRandomSheep = () => {
-    setSheep((prev) => [
+    setRandomSheep((prev) => [
       ...prev,
       {
-        id: nextId.current++,
+        id: `random-${nextId.current++}`,
         bodyLevel: pickRandom(BODY_LEVELS),
         bodySize: pickRandom(BODY_SIZES),
-        eye: pickRandom(EYE_VARIANTS),
         bodyColor: pickRandom(BODY_COLOR_PRESETS),
       },
     ]);
   };
 
   const removeAllSheep = () => {
-    setSheep([]);
+    setRandomSheep([]);
   };
 
   return (
     <View style={styles.container}>
       <IsometricBackground />
-      {sheep.map(({ id, bodyLevel, bodySize, eye, bodyColor }) => (
-        <RoamingSheep
-          key={id}
-          bodyLevel={bodyLevel}
-          bodySize={bodySize}
-          eye={eye}
-          bodyColor={bodyColor}
-        />
-      ))}
+      {[...diarySheep, ...randomSheep].map(
+        ({ id, bodyLevel, bodySize, bodyColor }) => (
+          <RoamingSheep
+            key={id}
+            bodyLevel={bodyLevel}
+            bodySize={bodySize}
+            eye={globalEye}
+            bodyColor={bodyColor}
+          />
+        ),
+      )}
 
       <Pressable
         style={styles.menuButton}
         onPress={() => setPreviewVisible(true)}
       >
         <Text style={styles.menuButtonText}>メニュー</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.diaryButton}
+        onPress={() => router.push("/diary")}
+      >
+        <Text style={styles.menuButtonText}>音声日記</Text>
       </Pressable>
 
       <View style={styles.buttonRow}>
@@ -82,6 +140,8 @@ export default function Index() {
       <CharacterPreviewModal
         visible={previewVisible}
         onClose={() => setPreviewVisible(false)}
+        eye={globalEye}
+        onSelectEye={selectEye}
       />
     </View>
   );
@@ -104,6 +164,16 @@ const styles = StyleSheet.create({
   menuButtonText: {
     color: "#fff",
     fontWeight: "600",
+  },
+  diaryButton: {
+    position: "absolute",
+    top: 110,
+    right: 20,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    zIndex: 9999,
   },
   buttonRow: {
     position: "absolute",

@@ -25,6 +25,18 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## 音声日記機能
+
+音声日記の解析には Gemini API（`gemini-2.5-flash` / 開発時は `gemini-2.5-flash-lite`）を使用しています。Gemini APIキーは Supabase Edge Function (`supabase/functions/analyze-voice-diary`) のシークレットとして設定してください（クライアントには一切埋め込みません）。
+
+```bash
+supabase secrets set GEMINI_API_KEY=xxx --project-ref fuvwumwegtvrvvtsiash
+# モデルを切り替える場合
+supabase secrets set GEMINI_MODEL=gemini-2.5-flash-lite --project-ref fuvwumwegtvrvvtsiash
+```
+
+Gemini APIの無料枠を利用する場合、送信した音声データがモデルの学習改善に利用される場合があります。詳細は [Gemini API利用規約](https://ai.google.dev/gemini-api/terms) を確認してください。
+
 ## Get a fresh project
 
 When you're ready, run:
