@@ -15,6 +15,7 @@ import {
 } from "../components/sheep-sprite";
 import { useAuth } from "../contexts/auth-context";
 import { supabase } from "../lib/supabase";
+import { eyeVariantFromMetadata } from "../lib/eye-preference";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
 import { listVoiceDiaries } from "../lib/voice-diary-api";
 
@@ -29,10 +30,6 @@ function pickRandom<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function isEyeVariant(value: unknown): value is EyeVariant {
-  return EYE_VARIANTS.includes(value as EyeVariant);
-}
-
 export default function Index() {
   const router = useRouter();
   const { session } = useAuth();
@@ -45,9 +42,8 @@ export default function Index() {
   useEffect(() => {
     // user.idが変わった時（サインイン/サインアウト/別ユーザー）だけ保存済みの目を復元する。
     // eye_variant自体を依存に入れると、自分でupdateUserした直後に再同期して選択が揺れ戻る。
-    const savedEye = session?.user.user_metadata?.eye_variant;
-    if (isEyeVariant(savedEye)) {
-      setGlobalEye(savedEye);
+    if (session) {
+      setGlobalEye(eyeVariantFromMetadata(session.user.user_metadata));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user.id]);

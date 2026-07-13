@@ -8,9 +8,14 @@ import {
   View,
 } from "react-native";
 import { EmotionBadge } from "../../components/emotion-badge";
+import { SheepSprite } from "../../components/sheep-sprite";
 import { StarRating } from "../../components/star-rating";
 import { useAuth } from "../../contexts/auth-context";
+import { eyeVariantFromMetadata } from "../../lib/eye-preference";
+import { diaryToSheepAppearance } from "../../lib/sheep-mapping";
 import { listVoiceDiaries, VoiceDiary } from "../../lib/voice-diary-api";
+
+const CARD_SHEEP_SCALE = 70 / 1080;
 
 export default function DiaryListScreen() {
   const router = useRouter();
@@ -18,6 +23,7 @@ export default function DiaryListScreen() {
   const [diaries, setDiaries] = useState<VoiceDiary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const eye = eyeVariantFromMetadata(session?.user.user_metadata);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,22 +69,38 @@ export default function DiaryListScreen() {
         data={diaries}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <EmotionBadge emotion={item.emotion} />
-              <Text style={styles.date}>
-                {new Date(item.created_at).toLocaleString("ja-JP")}
-              </Text>
+        renderItem={({ item }) => {
+          const appearance = diaryToSheepAppearance(item);
+          return (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.headerLeft}>
+                  <View style={styles.sheepPreview}>
+                    <SheepSprite
+                      bodyLevel={appearance.bodyLevel}
+                      bodySize={appearance.bodySize}
+                      bodyColor={appearance.bodyColor}
+                      eye={eye}
+                      state="idle"
+                      scale={CARD_SHEEP_SCALE}
+                    />
+                  </View>
+                  <EmotionBadge emotion={item.emotion} />
+                </View>
+                <Text style={styles.date}>
+                  {new Date(item.created_at).toLocaleString("ja-JP")}
+                </Text>
+              </View>
+              <Text style={styles.quote}>「{item.highlight_quote}」</Text>
+              <View style={styles.stars}>
+                <StarRating label="速さ" score={item.speed_score} />
+                <StarRating label="間" score={item.pause_score} />
+                <StarRating label="量" score={item.volume_score} />
+              </View>
+              <Text style={styles.transcript}>{item.transcribed_text}</Text>
             </View>
-            <Text style={styles.quote}>「{item.highlight_quote}」</Text>
-            <View style={styles.stars}>
-              <StarRating label="速さ" score={item.speed_score} />
-              <StarRating label="間" score={item.pause_score} />
-              <StarRating label="量" score={item.volume_score} />
-            </View>
-          </View>
-        )}
+          );
+        }}
       />
     </View>
   );
@@ -146,6 +168,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sheepPreview: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transcript: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#666",
   },
   date: {
     fontSize: 12,

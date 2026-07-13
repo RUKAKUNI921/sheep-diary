@@ -27,12 +27,13 @@ You can start developing by editing the files inside the **app** directory. This
 
 ## 音声日記機能
 
-音声日記の解析には Gemini API（`gemini-2.5-flash` / 開発時は `gemini-2.5-flash-lite`）を使用しています。Gemini APIキーは Supabase Edge Function (`supabase/functions/analyze-voice-diary`) のシークレットとして設定してください（クライアントには一切埋め込みません）。
+音声日記の解析には Gemini API を使用しています。デフォルトのモデルは `gemini-flash-latest`（Googleが提供する「その時点で新規ユーザーが使える推奨flashモデル」を指すエイリアス）です。`gemini-2.5-flash` / `gemini-2.5-flash-lite` は新規発行のAPIキーだと `404 no longer available to new users` になることがあるため既定値から外しています。Gemini APIキーは Supabase Edge Function (`supabase/functions/analyze-voice-diary`) のシークレットとして設定してください（クライアントには一切埋め込みません）。
 
 ```bash
 supabase secrets set GEMINI_API_KEY=xxx --project-ref fuvwumwegtvrvvtsiash
-# モデルを切り替える場合
-supabase secrets set GEMINI_MODEL=gemini-2.5-flash-lite --project-ref fuvwumwegtvrvvtsiash
+# モデルを切り替える場合（利用可能なモデルは `curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY"` で確認できます）
+# 開発・テスト用の軽量版エイリアスは gemini-flash-lite-latest
+supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest --project-ref fuvwumwegtvrvvtsiash
 ```
 
 Gemini APIの無料枠を利用する場合、送信した音声データがモデルの学習改善に利用される場合があります。詳細は [Gemini API利用規約](https://ai.google.dev/gemini-api/terms) を確認してください。
