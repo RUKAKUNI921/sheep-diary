@@ -123,6 +123,9 @@ type SheepSpriteProps = {
   state: SheepAnimationState;
   scale?: number;
   onStateChange?: (state: SheepAnimationState) => void;
+  // When false, renders a static first frame instead of cycling through the
+  // walk/idle animation. Used for thumbnails/previews.
+  animated?: boolean;
 };
 
 export function SheepSprite({
@@ -133,6 +136,7 @@ export function SheepSprite({
   state,
   scale = 1,
   onStateChange,
+  animated = true,
 }: SheepSpriteProps) {
   const [displayState, setDisplayState] = useState(state);
   const [frame, setFrame] = useState(0);
@@ -145,6 +149,7 @@ export function SheepSprite({
   const handleImageLoad = () => setLoadedCount((count) => count + 1);
 
   useEffect(() => {
+    if (!animated) return;
     const id = setInterval(() => {
       setFrame((prev) => {
         const next = (prev + 1) % FRAME_COUNT;
@@ -156,7 +161,7 @@ export function SheepSprite({
       });
     }, FRAME_DURATIONS_MS[displayState]);
     return () => clearInterval(id);
-  }, [displayState]);
+  }, [displayState, animated]);
 
   const size = FRAME_SIZE * scale;
 

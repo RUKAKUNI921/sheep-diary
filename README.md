@@ -38,6 +38,8 @@ supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest --project-ref fuvwumw
 
 Gemini APIの無料枠を利用する場合、送信した音声データがモデルの学習改善に利用される場合があります。詳細は [Gemini API利用規約](https://ai.google.dev/gemini-api/terms) を確認してください。
 
+APIのレート制限にかからないよう自動解析の代わりにGemini Web UIで手動解析したい場合は [docs/manual-gemini-analysis.md](docs/manual-gemini-analysis.md) を参照してください。
+
 ## Get a fresh project
 
 When you're ready, run:

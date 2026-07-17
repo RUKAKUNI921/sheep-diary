@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, StyleSheet, View } from "react-native";
-import {
-  BodyLevel,
-  BodySize,
-  EyeVariant,
-  SheepSprite,
-  WALK_CYCLE_MS,
-} from "./sheep-sprite";
+import { Animated, Dimensions, Pressable, StyleSheet, View } from "react-native";
+import { BodyLevel, BodySize, EyeVariant, SheepSprite, WALK_CYCLE_MS } from "./sheep-sprite";
 
-const SHEEP_DISPLAY_SIZE = 90 * 1.5;
+const SHEEP_DISPLAY_SIZE = 150;
 const FRAME_SIZE = 1080;
 const SHEEP_SCALE = SHEEP_DISPLAY_SIZE / FRAME_SIZE;
 const SHEEP_SIZE = SHEEP_DISPLAY_SIZE;
@@ -41,22 +35,15 @@ const CYCLE_DISTANCE = (SPEED * WALK_CYCLE_MS) / 1000;
 // fit even one full walk cycle along either isometric axis. Callers should
 // skip the walk cycle in that case rather than starting a partial-cycle
 // animation.
-function pickIsoTarget(
-  fromX: number,
-  fromY: number,
-  maxX: number,
-  maxY: number,
-) {
+function pickIsoTarget(fromX: number, fromY: number, maxX: number, maxY: number) {
   for (let attempt = 0; attempt < PICK_TARGET_ATTEMPTS; attempt++) {
     const axis = ISO_AXES[Math.floor(Math.random() * ISO_AXES.length)];
     const sign = Math.random() < 0.5 ? 1 : -1;
     const dx = axis.x * sign;
     const dy = axis.y * sign;
 
-    const tMaxX =
-      dx > 0 ? (maxX - fromX) / dx : dx < 0 ? fromX / -dx : Infinity;
-    const tMaxY =
-      dy > 0 ? (maxY - fromY) / dy : dy < 0 ? fromY / -dy : Infinity;
+    const tMaxX = dx > 0 ? (maxX - fromX) / dx : dx < 0 ? fromX / -dx : Infinity;
+    const tMaxY = dy > 0 ? (maxY - fromY) / dy : dy < 0 ? fromY / -dy : Infinity;
     const tMax = Math.max(0, Math.min(tMaxX, tMaxY));
 
     const maxCycles = Math.floor(tMax / CYCLE_DISTANCE);
@@ -75,14 +62,10 @@ type RoamingSheepProps = {
   bodySize: BodySize;
   eye: EyeVariant;
   bodyColor: string;
+  onPress?: () => void;
 };
 
-export function RoamingSheep({
-  bodyLevel,
-  bodySize,
-  eye,
-  bodyColor,
-}: RoamingSheepProps) {
+export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: RoamingSheepProps) {
   const position = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const currentPos = useRef({ x: 0, y: 0 });
   const [walking, setWalking] = useState(false);
@@ -120,12 +103,7 @@ export function RoamingSheep({
         if (cancelled) break;
 
         const { x: fromX, y: fromY } = currentPos.current;
-        const target = pickIsoTarget(
-          fromX,
-          fromY,
-          width - SHEEP_SIZE,
-          height - SHEEP_SIZE,
-        );
+        const target = pickIsoTarget(fromX, fromY, width - SHEEP_SIZE, height - SHEEP_SIZE);
         if (!target) {
           // Boxed in against a corner/edge; just wait and try again next
           // cycle instead of starting a near-zero-distance walk.
@@ -173,13 +151,8 @@ export function RoamingSheep({
   }, [position]);
 
   return (
-    <Animated.View
-      style={[
-        styles.sheepWrapper,
-        { zIndex, transform: position.getTranslateTransform() },
-      ]}
-    >
-      <View style={{ transform: [{ scaleX: facingLeft ? -1 : 1 }] }}>
+    <Animated.View style={[styles.sheepWrapper, { zIndex, transform: position.getTranslateTransform() }]}>
+      <Pressable disabled={!onPress} onPress={onPress} style={{ transform: [{ scaleX: facingLeft ? -1 : 1 }] }}>
         <SheepSprite
           bodyLevel={bodyLevel}
           bodySize={bodySize}
@@ -189,7 +162,7 @@ export function RoamingSheep({
           scale={SHEEP_SCALE}
           onStateChange={handleSpriteStateChange}
         />
-      </View>
+      </Pressable>
     </Animated.View>
   );
 }

@@ -68,3 +68,13 @@ export async function listVoiceDiaries(): Promise<VoiceDiary[]> {
   if (error) throw error;
   return data;
 }
+
+export async function getVoiceDiary(id: string): Promise<VoiceDiary> {
+  const { data, error } = await supabase
+    .from("voice_diaries")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}

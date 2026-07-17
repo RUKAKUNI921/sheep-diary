@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CharacterPreviewModal } from "../components/character-preview-modal";
+import { DiaryDetailModal } from "../components/diary-detail-modal";
 import { IsometricBackground } from "../components/isometric-background";
 import { RoamingSheep } from "../components/roaming-sheep";
 import {
@@ -24,6 +25,7 @@ type SheepEntry = {
   bodyLevel: BodyLevel;
   bodySize: BodySize;
   bodyColor: string;
+  diaryId?: string;
 };
 
 function pickRandom<T>(items: readonly T[]): T {
@@ -37,6 +39,7 @@ export default function Index() {
   const [diarySheep, setDiarySheep] = useState<SheepEntry[]>([]);
   const [globalEye, setGlobalEye] = useState<EyeVariant>(EYE_VARIANTS[0]);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
   const nextId = useRef(0);
 
   useEffect(() => {
@@ -59,6 +62,7 @@ export default function Index() {
           setDiarySheep(
             diaries.map((diary) => ({
               id: `diary-${diary.id}`,
+              diaryId: diary.id,
               ...diaryToSheepAppearance(diary),
             })),
           );
@@ -96,13 +100,16 @@ export default function Index() {
     <View style={styles.container}>
       <IsometricBackground />
       {[...diarySheep, ...randomSheep].map(
-        ({ id, bodyLevel, bodySize, bodyColor }) => (
+        ({ id, bodyLevel, bodySize, bodyColor, diaryId }) => (
           <RoamingSheep
             key={id}
             bodyLevel={bodyLevel}
             bodySize={bodySize}
             eye={globalEye}
             bodyColor={bodyColor}
+            onPress={
+              diaryId ? () => setSelectedDiaryId(diaryId) : undefined
+            }
           />
         ),
       )}
@@ -138,6 +145,12 @@ export default function Index() {
         onClose={() => setPreviewVisible(false)}
         eye={globalEye}
         onSelectEye={selectEye}
+      />
+
+      <DiaryDetailModal
+        diaryId={selectedDiaryId}
+        onClose={() => setSelectedDiaryId(null)}
+        eye={globalEye}
       />
     </View>
   );
