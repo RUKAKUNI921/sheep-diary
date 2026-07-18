@@ -7,13 +7,17 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const EMOTIONS = ["悲しい", "憂鬱", "恋", "善", "楽しい", "怒り"] as const;
+const EMOTIONS = ["不安・鬱", "楽しい・嬉しい", "怒り・イライラ", "悲しみ", "安心・平常", "好き・愛"] as const;
 type Emotion = (typeof EMOTIONS)[number];
 
 // 5段階正規化の閾値（叩き台。運用しながら調整する）
 const VOLUME_CHAR_THRESHOLDS = [50, 150, 400, 800];
 const SPEED_CPS_THRESHOLDS = [3, 5, 7, 9];
-const PAUSE_SECONDS_THRESHOLDS = [2, 5, 10, 20];
+// 「間」の指標には「発話時間 ÷ 文字数」（1文字あたりの秒数）を使う。
+// セグメント間の無音秒数（totalGap）で試したところ、Geminiの書き起こしは
+// 実際の音声にある間をほぼ拾わずセグメントを隙間なく繋げて返す傾向があり、
+// totalGapが常に0近辺に張り付いてpause_scoreが動かなかったため変更。
+const PAUSE_SECONDS_PER_CHAR_THRESHOLDS = [0.15, 0.22, 0.3, 0.4];
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +34,7 @@ interface Segment {
 interface GeminiAnalysis {
   segments: Segment[];
   overall_emotion: string;
+  sub_emotion: string;
   highlight_quote: string;
 }
 
@@ -138,8 +143,12 @@ async function analyzeWithGemini(fileUri: string, mimeType: string): Promise<Gem
               {
                 text:
                   "この音声日記を書き起こし、開始・終了時刻（秒, 数値）付きでセグメントに分割してください。" +
-                  "また、日記全体を通して最も支配的だった感情カテゴリを1つ選び、" +
-                  "日記の中で最も印象的だった一言を原文からそのまま10文字以内で抜き出してください（要約・言い換え禁止）。",
+                  "また、日記全体を通して最も支配的だった感情カテゴリを1つ選んでoverall_emotionとし、" +
+                  "次に支配的だった、overall_emotionとは異なる感情カテゴリを1つ選んでsub_emotionとしてください" +
+                  "（サブの感情がほとんど感じられない場合も、その中で最も近いものを1つ選んでください）。" +
+                  "日記の中でその日いちばん印象に残った出来事を表す一節を、原文からそのまま15文字以内で抜き出してください" +
+                  "（要約・言い換え禁止。文の一部を切り出すのは可）。" +
+                  "感情や気持ちの説明ではなく、「何があったか」が具体的に伝わる部分を優先してください。",
               },
               { file_data: { mime_type: mimeType, file_uri: fileUri } },
             ],
@@ -163,9 +172,10 @@ async function analyzeWithGemini(fileUri: string, mimeType: string): Promise<Gem
                 },
               },
               overall_emotion: { type: "string", enum: EMOTIONS as unknown as string[] },
+              sub_emotion: { type: "string", enum: EMOTIONS as unknown as string[] },
               highlight_quote: { type: "string" },
             },
-            required: ["segments", "overall_emotion", "highlight_quote"],
+            required: ["segments", "overall_emotion", "sub_emotion", "highlight_quote"],
           },
         },
       }),
@@ -194,11 +204,8 @@ function computeScores(segments: Segment[]) {
   const avgCps = durationSum > 0 ? weightedCpsSum / durationSum : 0;
   const speed_score = bucketize(avgCps, SPEED_CPS_THRESHOLDS);
 
-  let totalGap = 0;
-  for (let i = 1; i < segments.length; i++) {
-    totalGap += Math.max(0, segments[i].start - segments[i - 1].end);
-  }
-  const pause_score = bucketize(totalGap, PAUSE_SECONDS_THRESHOLDS);
+  const secondsPerChar = totalChars > 0 ? durationSum / totalChars : 0;
+  const pause_score = bucketize(secondsPerChar, PAUSE_SECONDS_PER_CHAR_THRESHOLDS);
 
   return { speed_score, pause_score, volume_score };
 }
@@ -263,10 +270,13 @@ Deno.serve(async (req: Request) => {
     if (!EMOTIONS.includes(analysis.overall_emotion as Emotion)) {
       throw new Error(`Gemini returned an unexpected emotion: ${analysis.overall_emotion}`);
     }
+    if (!EMOTIONS.includes(analysis.sub_emotion as Emotion)) {
+      throw new Error(`Gemini returned an unexpected sub_emotion: ${analysis.sub_emotion}`);
+    }
 
     const highlightQuote =
-      analysis.highlight_quote.length > 10
-        ? analysis.highlight_quote.slice(0, 10)
+      analysis.highlight_quote.length > 15
+        ? analysis.highlight_quote.slice(0, 15)
         : analysis.highlight_quote;
 
     const transcribedText = analysis.segments.map((s) => s.text).join("");
@@ -275,6 +285,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({
       transcribed_text: transcribedText,
       emotion: analysis.overall_emotion,
+      sub_emotion: analysis.sub_emotion,
       highlight_quote: highlightQuote,
       ...scores,
     });

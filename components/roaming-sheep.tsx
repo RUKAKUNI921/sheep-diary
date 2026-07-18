@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Pressable, StyleSheet, View } from "react-native";
-import { BodyLevel, BodySize, EyeVariant, SheepSprite, WALK_CYCLE_MS } from "./sheep-sprite";
+import { Animated, Pressable, StyleSheet } from "react-native";
+import { BodyLevel, BodySize, EyeVariant, RareHornKey, SheepSprite, WALK_CYCLE_MS } from "./sheep-sprite";
 
 const SHEEP_DISPLAY_SIZE = 150;
-const FRAME_SIZE = 1080;
+const FRAME_SIZE = 256;
 const SHEEP_SCALE = SHEEP_DISPLAY_SIZE / FRAME_SIZE;
 const SHEEP_SIZE = SHEEP_DISPLAY_SIZE;
 const SPEED = 60; // px / sec
-const IDLE_MIN_MS = 800;
-const IDLE_MAX_MS = 2000;
+const IDLE_MIN_MS = 1600;
+const IDLE_MAX_MS = 4000;
 
 // Movement is constrained to the two isometric grid directions (slope
 // ±0.5, matching the background grid in isometric-background.tsx).
@@ -23,8 +23,6 @@ function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-const PICK_TARGET_ATTEMPTS = 8;
-
 // Distance covered by exactly one full walk animation cycle. Movement
 // distance is always a whole multiple of this so the walk finishes its
 // cycle (back to a neutral pose) at the same instant the sheep stops,
@@ -32,29 +30,34 @@ const PICK_TARGET_ATTEMPTS = 8;
 const CYCLE_DISTANCE = (SPEED * WALK_CYCLE_MS) / 1000;
 
 // Returns null when the sheep is boxed in (e.g. against a corner) and can't
-// fit even one full walk cycle along either isometric axis. Callers should
-// skip the walk cycle in that case rather than starting a partial-cycle
-// animation.
+// fit even one full walk cycle along any isometric direction. Otherwise,
+// biases toward directions with more open room so the sheep drifts back out
+// of corners/edges over time instead of settling into a tight shuffle there.
 function pickIsoTarget(fromX: number, fromY: number, maxX: number, maxY: number) {
-  for (let attempt = 0; attempt < PICK_TARGET_ATTEMPTS; attempt++) {
-    const axis = ISO_AXES[Math.floor(Math.random() * ISO_AXES.length)];
-    const sign = Math.random() < 0.5 ? 1 : -1;
-    const dx = axis.x * sign;
-    const dy = axis.y * sign;
+  const candidates: { dx: number; dy: number; maxCycles: number }[] = [];
 
-    const tMaxX = dx > 0 ? (maxX - fromX) / dx : dx < 0 ? fromX / -dx : Infinity;
-    const tMaxY = dy > 0 ? (maxY - fromY) / dy : dy < 0 ? fromY / -dy : Infinity;
-    const tMax = Math.max(0, Math.min(tMaxX, tMaxY));
+  for (const axis of ISO_AXES) {
+    for (const sign of [1, -1]) {
+      const dx = axis.x * sign;
+      const dy = axis.y * sign;
 
-    const maxCycles = Math.floor(tMax / CYCLE_DISTANCE);
-    if (maxCycles >= 1) {
-      const cycles = 1 + Math.floor(Math.random() * maxCycles);
-      const t = cycles * CYCLE_DISTANCE;
-      return { x: fromX + dx * t, y: fromY + dy * t };
+      const tMaxX = dx > 0 ? (maxX - fromX) / dx : dx < 0 ? fromX / -dx : Infinity;
+      const tMaxY = dy > 0 ? (maxY - fromY) / dy : dy < 0 ? fromY / -dy : Infinity;
+      const tMax = Math.max(0, Math.min(tMaxX, tMaxY));
+
+      const maxCycles = Math.floor(tMax / CYCLE_DISTANCE);
+      if (maxCycles >= 1) candidates.push({ dx, dy, maxCycles });
     }
   }
 
-  return null;
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.maxCycles - a.maxCycles);
+  const roomiest = candidates.slice(0, Math.ceil(candidates.length / 2));
+  const { dx, dy, maxCycles } = roomiest[Math.floor(Math.random() * roomiest.length)];
+  const cycles = 1 + Math.floor(Math.random() * maxCycles);
+  const t = cycles * CYCLE_DISTANCE;
+  return { x: fromX + dx * t, y: fromY + dy * t };
 }
 
 type RoamingSheepProps = {
@@ -62,10 +65,31 @@ type RoamingSheepProps = {
   bodySize: BodySize;
   eye: EyeVariant;
   bodyColor: string;
+  hornColor: string;
+  hornVariant?: number;
+  rareHorn?: RareHornKey;
   onPress?: () => void;
+  // Size of the area the sheep is allowed to wander in, in the same
+  // coordinate space it's positioned in (may be larger than the screen).
+  areaWidth: number;
+  areaHeight: number;
+  // Called once this sheep's sprite has finished loading its images.
+  onReady?: () => void;
 };
 
-export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: RoamingSheepProps) {
+export function RoamingSheep({
+  bodyLevel,
+  bodySize,
+  eye,
+  bodyColor,
+  hornColor,
+  hornVariant,
+  rareHorn,
+  onPress,
+  areaWidth,
+  areaHeight,
+  onReady,
+}: RoamingSheepProps) {
   const position = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const currentPos = useRef({ x: 0, y: 0 });
   const [walking, setWalking] = useState(false);
@@ -91,9 +115,8 @@ export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: R
     let cancelled = false;
 
     const runLoop = async () => {
-      const { width, height } = Dimensions.get("window");
-      const startX = Math.random() * (width - SHEEP_SIZE);
-      const startY = Math.random() * (height - SHEEP_SIZE);
+      const startX = Math.random() * (areaWidth - SHEEP_SIZE);
+      const startY = Math.random() * (areaHeight - SHEEP_SIZE);
       currentPos.current = { x: startX, y: startY };
       position.setValue({ x: startX, y: startY });
 
@@ -103,7 +126,12 @@ export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: R
         if (cancelled) break;
 
         const { x: fromX, y: fromY } = currentPos.current;
-        const target = pickIsoTarget(fromX, fromY, width - SHEEP_SIZE, height - SHEEP_SIZE);
+        const target = pickIsoTarget(
+          fromX,
+          fromY,
+          areaWidth - SHEEP_SIZE,
+          areaHeight - SHEEP_SIZE,
+        );
         if (!target) {
           // Boxed in against a corner/edge; just wait and try again next
           // cycle instead of starting a near-zero-distance walk.
@@ -119,10 +147,18 @@ export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: R
         setWalking(true);
 
         // Wait until the idle animation actually finishes its loop and the
-        // sprite switches to the walk frames before moving the sheep.
-        await new Promise<void>((resolve) => {
-          walkStartResolver.current = resolve;
-        });
+        // sprite switches to the walk frames before moving the sheep. Race
+        // against a timeout as a safety net in case the animation callback
+        // never fires — otherwise the sheep is left showing the walk
+        // animation forever without ever actually moving (looks stuck
+        // "walking in place").
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            walkStartResolver.current = resolve;
+          }),
+          wait(WALK_CYCLE_MS + 500),
+        ]);
+        walkStartResolver.current = null;
         if (cancelled) break;
 
         // Race against a timeout as a safety net in case the animation
@@ -148,7 +184,7 @@ export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: R
       cancelled = true;
       walkStartResolver.current = null;
     };
-  }, [position]);
+  }, [position, areaWidth, areaHeight]);
 
   return (
     <Animated.View style={[styles.sheepWrapper, { zIndex, transform: position.getTranslateTransform() }]}>
@@ -158,9 +194,13 @@ export function RoamingSheep({ bodyLevel, bodySize, eye, bodyColor, onPress }: R
           bodySize={bodySize}
           eye={eye}
           bodyColor={bodyColor}
+          hornColor={hornColor}
+          hornVariant={hornVariant}
+          rareHorn={rareHorn}
           state={walking ? "walk" : "idle"}
           scale={SHEEP_SCALE}
           onStateChange={handleSpriteStateChange}
+          onReady={onReady}
         />
       </Pressable>
     </Animated.View>

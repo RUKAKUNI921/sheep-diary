@@ -8,7 +8,12 @@ import {
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { analyzeVoiceDiary, saveVoiceDiary } from "../../lib/voice-diary-api";
+import { diaryToSheepAppearance } from "../../lib/sheep-mapping";
+import {
+  analyzeVoiceDiary,
+  pickRandomHornVariant,
+  saveVoiceDiary,
+} from "../../lib/voice-diary-api";
 
 type Phase = "idle" | "recording" | "recorded" | "analyzing";
 
@@ -48,8 +53,20 @@ export default function NewDiaryScreen() {
     setPhase("analyzing");
     try {
       const result = await analyzeVoiceDiary(recorder.uri, "audio/m4a");
-      await saveVoiceDiary(result);
-      router.replace("/diary");
+      const hornVariant = pickRandomHornVariant();
+      await saveVoiceDiary(result, hornVariant);
+      const appearance = diaryToSheepAppearance({ ...result, horn_variant: hornVariant });
+      router.replace({
+        pathname: "/diary/character",
+        params: {
+          bodyLevel: String(appearance.bodyLevel),
+          bodySize: String(appearance.bodySize),
+          bodyColor: appearance.bodyColor,
+          hornColor: appearance.hornColor,
+          hornVariant: String(hornVariant),
+          ...(appearance.rareHorn ? { rareHorn: appearance.rareHorn } : {}),
+        },
+      });
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "解析に失敗しました");
       setPhase("recorded");

@@ -31,7 +31,7 @@ export default function SignInScreen() {
       setErrorMessage(error.message);
       return;
     }
-    router.replace("/diary");
+    router.replace("/");
   };
 
   return (

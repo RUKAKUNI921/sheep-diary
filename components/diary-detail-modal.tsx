@@ -1,89 +1,63 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
-import { getVoiceDiary, VoiceDiary } from "../lib/voice-diary-api";
+import { CLOSE_BUTTON_SOURCE } from "../lib/ui-assets";
+import { VoiceDiary } from "../lib/voice-diary-api";
 import { EmotionBadge } from "./emotion-badge";
 import { EyeVariant, SheepSprite } from "./sheep-sprite";
 import { StarRating } from "./star-rating";
 
-const PREVIEW_SCALE = 160 / 1080;
+const PREVIEW_SCALE = 200 / 256;
+
+function formatDate(isoString: string): string {
+  const date = new Date(isoString);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
 
 type DiaryDetailModalProps = {
-  diaryId: string | null;
+  diary: VoiceDiary | null;
   onClose: () => void;
   eye: EyeVariant;
 };
 
-export function DiaryDetailModal({
-  diaryId,
-  onClose,
-  eye,
-}: DiaryDetailModalProps) {
-  const [diary, setDiary] = useState<VoiceDiary | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
+export function DiaryDetailModal({ diary, onClose, eye }: DiaryDetailModalProps) {
+  // Keep showing the last diary while the modal fades out instead of
+  // unmounting the content the instant `diary` goes null — clearing it in
+  // sync with `visible` leaves the native fade animating an empty shell,
+  // which looks like a ghost/afterimage of the closed modal.
+  const [displayedDiary, setDisplayedDiary] = useState(diary);
   useEffect(() => {
-    if (!diaryId) {
-      setDiary(null);
-      return;
-    }
-    setIsLoading(true);
-    setErrorMessage(null);
-    getVoiceDiary(diaryId)
-      .then(setDiary)
-      .catch((err) =>
-        setErrorMessage(
-          err instanceof Error ? err.message : "読み込みに失敗しました",
-        ),
-      )
-      .finally(() => setIsLoading(false));
-  }, [diaryId]);
+    if (diary) setDisplayedDiary(diary);
+  }, [diary]);
 
   return (
-    <Modal
-      visible={!!diaryId}
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={!!diary} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
+          <Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
+            <Image source={CLOSE_BUTTON_SOURCE} style={styles.closeButtonImage} resizeMode="contain" />
+          </Pressable>
+
           <View style={styles.header}>
             <Text style={styles.title}>日記の詳細</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <Text style={styles.closeText}>閉じる</Text>
-            </Pressable>
           </View>
 
-          {isLoading && <Text style={styles.emptyText}>読み込み中...</Text>}
-          {errorMessage ? (
-            <Text style={styles.error}>{errorMessage}</Text>
-          ) : null}
-
-          {diary && (
-            <ScrollView contentContainerStyle={styles.content}>
+          {displayedDiary && (
+            <View style={styles.content}>
               <View style={styles.sheepPreview}>
                 <SheepSprite
-                  {...diaryToSheepAppearance(diary)}
+                  {...diaryToSheepAppearance(displayedDiary)}
                   eye={eye}
                   state="idle"
                   animated={false}
                   scale={PREVIEW_SCALE}
                 />
               </View>
-              <EmotionBadge emotion={diary.emotion} />
-              <Text style={styles.date}>
-                {new Date(diary.created_at).toLocaleString("ja-JP")}
-              </Text>
-              <Text style={styles.quote}>「{diary.highlight_quote}」</Text>
-              <View style={styles.stars}>
-                <StarRating label="速さ" score={diary.speed_score} />
-                <StarRating label="間" score={diary.pause_score} />
-                <StarRating label="量" score={diary.volume_score} />
-              </View>
-              <Text style={styles.transcript}>{diary.transcribed_text}</Text>
-            </ScrollView>
+              <EmotionBadge emotion={displayedDiary.emotion} />
+              <Text style={styles.date}>{formatDate(displayedDiary.created_at)}</Text>
+              <Text style={styles.quote}>「{displayedDiary.highlight_quote}」</Text>
+              <Text style={styles.transcript}>{displayedDiary.transcribed_text}</Text>
+            </View>
           )}
         </View>
       </View>
@@ -100,15 +74,13 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    width: "88%",
-    maxWidth: 420,
+    borderWidth: 3,
+    borderRadius: 40,
+    width: 305,
     maxHeight: "80%",
     paddingBottom: 24,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -118,19 +90,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  closeText: {
-    color: "#4CAF50",
-    fontWeight: "600",
+  closeButton: {
+    position: "absolute",
+    top: -10,
+    right: -10,
+    zIndex: 1,
   },
-  error: {
-    color: "#E53935",
-    textAlign: "center",
-    marginTop: 12,
-  },
-  emptyText: {
-    color: "#666",
-    textAlign: "center",
-    marginTop: 24,
+  closeButtonImage: {
+    width: 45,
+    height: 45,
   },
   content: {
     alignItems: "center",
@@ -144,12 +112,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   date: {
+    fontFamily: "SetoFont",
     fontSize: 12,
     color: "#999",
     marginTop: 8,
   },
   quote: {
+    fontFamily: "SetoFont",
     fontSize: 17,
+    lineHeight: 17 * 1.3,
     fontWeight: "600",
     color: "#333",
     marginTop: 16,
@@ -161,9 +132,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   transcript: {
+    fontFamily: "SetoFont",
     marginTop: 20,
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 14 * 1.3,
     color: "#666",
     alignSelf: "stretch",
   },

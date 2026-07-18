@@ -3,9 +3,9 @@ import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 
 // Distance (px) between grid lines. Adjust this to make the isometric grid
 // tighter or wider.
-export const ISO_TILE_SIZE = 40;
+export const ISO_TILE_SIZE = 25;
 
-export const SKY_COLOR = "rgba(255,255,255)";
+export const SKY_COLOR = "#f4f9f4";
 const LINE_COLOR = "#87CEEB";
 const LINE_WIDTH = 1;
 

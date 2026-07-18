@@ -7,8 +7,9 @@ import {
   Text,
   View,
 } from "react-native";
+import { colorForEmotion, EMOTION_COLORS } from "../lib/emotion-colors";
+import { rareHornForCombo } from "../lib/sheep-mapping";
 import {
-  BODY_COLOR_PRESETS,
   BODY_LEVELS,
   BODY_SIZES,
   BodyLevel,
@@ -19,7 +20,8 @@ import {
   SheepSprite,
 } from "./sheep-sprite";
 
-const PREVIEW_SCALE = 200 / 1080;
+const PREVIEW_SCALE = 200 / 256;
+const EMOTION_NAMES = Object.keys(EMOTION_COLORS);
 
 type CharacterPreviewModalProps = {
   visible: boolean;
@@ -36,9 +38,13 @@ export function CharacterPreviewModal({
 }: CharacterPreviewModalProps) {
   const [bodySize, setBodySize] = useState<BodySize>(BODY_SIZES[0]);
   const [bodyLevel, setBodyLevel] = useState<BodyLevel>(BODY_LEVELS[0]);
-  const [bodyColor, setBodyColor] = useState<string>(BODY_COLOR_PRESETS[0]);
+  const [bodyEmotion, setBodyEmotion] = useState<string>(EMOTION_NAMES[0]);
+  const [subEmotion, setSubEmotion] = useState<string>(EMOTION_NAMES[0]);
   const [animationState, setAnimationState] =
     useState<SheepAnimationState>("idle");
+  const bodyColor = colorForEmotion(bodyEmotion);
+  const hornColor = colorForEmotion(subEmotion);
+  const rareHorn = rareHornForCombo(bodyLevel, bodyEmotion, subEmotion);
 
   return (
     <Modal
@@ -62,6 +68,8 @@ export function CharacterPreviewModal({
               bodySize={bodySize}
               eye={eye}
               bodyColor={bodyColor}
+              hornColor={hornColor}
+              rareHorn={rareHorn}
               state={animationState}
               scale={PREVIEW_SCALE}
             />
@@ -157,17 +165,32 @@ export function CharacterPreviewModal({
               ))}
             </View>
 
-            <Text style={styles.label}>体の色</Text>
+            <Text style={styles.label}>メイン感情（体の色）</Text>
             <View style={styles.row}>
-              {BODY_COLOR_PRESETS.map((color) => (
+              {EMOTION_NAMES.map((emotion) => (
                 <Pressable
-                  key={color}
+                  key={emotion}
                   style={[
                     styles.colorSwatch,
-                    { backgroundColor: color },
-                    bodyColor === color && styles.colorSwatchActive,
+                    { backgroundColor: EMOTION_COLORS[emotion] },
+                    bodyEmotion === emotion && styles.colorSwatchActive,
                   ]}
-                  onPress={() => setBodyColor(color)}
+                  onPress={() => setBodyEmotion(emotion)}
+                />
+              ))}
+            </View>
+
+            <Text style={styles.label}>複感情（ツノの色）</Text>
+            <View style={styles.row}>
+              {EMOTION_NAMES.map((emotion) => (
+                <Pressable
+                  key={emotion}
+                  style={[
+                    styles.colorSwatch,
+                    { backgroundColor: EMOTION_COLORS[emotion] },
+                    subEmotion === emotion && styles.colorSwatchActive,
+                  ]}
+                  onPress={() => setSubEmotion(emotion)}
                 />
               ))}
             </View>
