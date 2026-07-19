@@ -34,7 +34,7 @@ interface Segment {
 interface GeminiAnalysis {
   segments: Segment[];
   overall_emotion: string;
-  sub_emotion: string;
+  sub_emotion: string | null;
   highlight_quote: string;
 }
 
@@ -143,9 +143,11 @@ async function analyzeWithGemini(fileUri: string, mimeType: string): Promise<Gem
               {
                 text:
                   "この音声日記を書き起こし、開始・終了時刻（秒, 数値）付きでセグメントに分割してください。" +
-                  "また、日記全体を通して最も支配的だった感情カテゴリを1つ選んでoverall_emotionとし、" +
-                  "次に支配的だった、overall_emotionとは異なる感情カテゴリを1つ選んでsub_emotionとしてください" +
-                  "（サブの感情がほとんど感じられない場合も、その中で最も近いものを1つ選んでください）。" +
+                  "また、日記全体を通して最も支配的だった感情カテゴリを1つ選んでoverall_emotionとしてください。" +
+                  "そのうえで、overall_emotionとは異なる感情がその日記の中で明確に読み取れる場合だけ、" +
+                  "その感情カテゴリを1つ選んでsub_emotionとしてください。" +
+                  "無理にひねり出さず、はっきり読み取れない・overall_emotion以外の感情がほぼ感じられない場合は" +
+                  "sub_emotionをnullにしてください。" +
                   "日記の中でその日いちばん印象に残った出来事を表す一節を、原文からそのまま15文字以内で抜き出してください" +
                   "（要約・言い換え禁止。文の一部を切り出すのは可）。" +
                   "感情や気持ちの説明ではなく、「何があったか」が具体的に伝わる部分を優先してください。",
@@ -172,7 +174,7 @@ async function analyzeWithGemini(fileUri: string, mimeType: string): Promise<Gem
                 },
               },
               overall_emotion: { type: "string", enum: EMOTIONS as unknown as string[] },
-              sub_emotion: { type: "string", enum: EMOTIONS as unknown as string[] },
+              sub_emotion: { type: "string", enum: EMOTIONS as unknown as string[], nullable: true },
               highlight_quote: { type: "string" },
             },
             required: ["segments", "overall_emotion", "sub_emotion", "highlight_quote"],
@@ -270,7 +272,7 @@ Deno.serve(async (req: Request) => {
     if (!EMOTIONS.includes(analysis.overall_emotion as Emotion)) {
       throw new Error(`Gemini returned an unexpected emotion: ${analysis.overall_emotion}`);
     }
-    if (!EMOTIONS.includes(analysis.sub_emotion as Emotion)) {
+    if (analysis.sub_emotion !== null && !EMOTIONS.includes(analysis.sub_emotion as Emotion)) {
       throw new Error(`Gemini returned an unexpected sub_emotion: ${analysis.sub_emotion}`);
     }
 

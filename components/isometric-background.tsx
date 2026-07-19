@@ -6,7 +6,7 @@ import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 export const ISO_TILE_SIZE = 25;
 
 export const SKY_COLOR = "#f4f9f4";
-const LINE_COLOR = "#87CEEB";
+const LINE_COLOR = "#92DECE";
 const LINE_WIDTH = 1;
 
 export function IsometricBackground() {

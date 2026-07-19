@@ -1,12 +1,12 @@
 import { DEFAULT_BODY_COLOR } from "../components/sheep-sprite";
 
 export const EMOTION_COLORS: Record<string, string> = {
-  "不安・鬱": "#6470C6",
-  "楽しい・嬉しい": "#FFA959",
-  "怒り・イライラ": "#FA5A5C",
-  悲しみ: "#2AB9E3",
-  "安心・平常": "#38D281",
-  "好き・愛": "#F497EA",
+  "不安・鬱": "#8D5BDB",
+  "楽しい・嬉しい": "#FDB228",
+  "怒り・イライラ": "#FF4339",
+  悲しみ: "#008CDD",
+  "安心・平常": "#00B058",
+  "好き・愛": "#FF82AD",
 };
 
 export function colorForEmotion(emotion: string): string {

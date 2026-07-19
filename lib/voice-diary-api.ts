@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 export type AnalyzeResult = {
   transcribed_text: string;
   emotion: string;
-  sub_emotion: string;
+  sub_emotion: string | null;
   highlight_quote: string;
   speed_score: number;
   pause_score: number;

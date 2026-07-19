@@ -13,7 +13,9 @@ APIのレート制限にかからないよう、Gemini API を自動で呼ぶ代
 
 ```
 この音声日記を書き起こし、開始・終了時刻（秒, 数値）付きでセグメントに分割してください。
-また、日記全体を通して最も支配的だった感情カテゴリを1つ選び、
+また、日記全体を通して最も支配的だった感情カテゴリを1つ選んでoverall_emotionとし、
+次に支配的だった、overall_emotionとは異なる感情カテゴリを1つ選んでsub_emotionとしてください
+（サブの感情がほとんど感じられない場合も、その中で最も近いものを1つ選んでください）。
 日記の中でその日いちばん印象に残った出来事を表す一節を、原文からそのまま15文字以内で抜き出してください
 （要約・言い換え禁止。文の一部を切り出すのは可）。
 感情や気持ちの説明ではなく、「何があったか」が具体的に伝わる部分を優先してください。
@@ -28,11 +30,12 @@ APIのレート制限にかからないよう、Gemini API を自動で呼ぶ代
     { "start": 0.0, "end": 3.2, "text": "セグメントのテキスト" }
   ],
   "overall_emotion": "楽しい・嬉しい",
+  "sub_emotion": "安心・平常",
   "highlight_quote": "その日あった出来事の一節"
 }
 
 - segments の start / end は音声内の秒数（数値、文字列にしない）
-- overall_emotion は上記6カテゴリのうちいずれか1つの文字列
+- overall_emotion / sub_emotion は上記6カテゴリのうちいずれか1つの文字列（sub_emotionはoverall_emotionと異なるもの）
 - highlight_quote は原文からの抜き出しで15文字以内
 ```
 
@@ -47,10 +50,15 @@ Gemini からの回答（JSON部分のみ）をそのままClaudeに貼り付け
     { "start": 5.0, "end": 9.8, "text": "久しぶりに友達に会えてとても嬉しかった。" }
   ],
   "overall_emotion": "楽しい・嬉しい",
+  "sub_emotion": "安心・平常",
   "highlight_quote": "友達に会えてとても嬉しかった"
 }
 ```
 
 同じ音声ファイルを本番の自動解析（Edge Function）に投げると、`gemini_response_cache` テーブルに音声ハッシュ単位でキャッシュされ、次回以降は再解析されない点に注意してください。手動解析の結果は自動ではこのキャッシュに入らないため、後で同じ音声をアプリから解析し直すと改めてGemini APIが呼ばれます。
 
-Claude側でこのJSONから `speed_score` / `pause_score` / `volume_score`（各1〜5）を計算し、`transcribed_text`（segmentsの結合）・`emotion`・`highlight_quote` とあわせて `voice_diaries` に保存します。スコアの計算ロジックは `supabase/functions/analyze-voice-diary/index.ts` の `computeScores`/`bucketize` と同じものを使います。
+Claude側でこのJSONから `speed_score` / `pause_score` / `volume_score`（各1〜5）を計算し、`transcribed_text`（segmentsの結合）・`emotion`（overall_emotion）・`sub_emotion`・`highlight_quote` とあわせて `voice_diaries` に保存します。スコアの計算ロジックは `supabase/functions/analyze-voice-diary/index.ts` の `computeScores`/`bucketize` と同じものを使います。
+
+- `volume_score`: 全セグメントの文字数合計を閾値 `[50, 150, 400, 800]` で5段階化
+- `speed_score`: 文字数を発話時間で割った速度（文字/秒）を閾値 `[3, 5, 7, 9]` で5段階化
+- `pause_score`: 発話時間 ÷ 文字数（1文字あたりの秒数）を閾値 `[0.15, 0.22, 0.3, 0.4]` で5段階化（以前はセグメント間の無音秒数を使っていたが、Geminiの書き起こしが間をほぼ拾わずスコアが動かなかったため変更）

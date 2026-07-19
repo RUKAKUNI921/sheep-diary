@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
-import { CLOSE_BUTTON_SOURCE } from "../lib/ui-assets";
+import { CLOSE_BUTTON_SOURCE, FUKIDASHI_SOURCE, MODAL_BACKGROUND_SOURCE } from "../lib/ui-assets";
 import { VoiceDiary } from "../lib/voice-diary-api";
 import { EmotionBadge } from "./emotion-badge";
 import { EyeVariant, SheepSprite } from "./sheep-sprite";
@@ -38,27 +38,33 @@ export function DiaryDetailModal({ diary, onClose, eye }: DiaryDetailModalProps)
             <Image source={CLOSE_BUTTON_SOURCE} style={styles.closeButtonImage} resizeMode="contain" />
           </Pressable>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>日記の詳細</Text>
-          </View>
+          <ImageBackground source={MODAL_BACKGROUND_SOURCE} style={styles.sheetInner} resizeMode="stretch">
+            {displayedDiary && (
+              <View style={styles.content}>
+                <Text style={styles.date}>{formatDate(displayedDiary.created_at)}</Text>
+                <View style={styles.sheepPreview}>
+                  <SheepSprite
+                    {...diaryToSheepAppearance(displayedDiary)}
+                    eye={eye}
+                    state="idle"
+                    animated={false}
+                    scale={PREVIEW_SCALE}
+                    textured
+                  />
+                  <View style={styles.fukidashiOverlay}>
+                    <Image source={FUKIDASHI_SOURCE} style={styles.fukidashi} resizeMode="contain" />
+                    <Text style={styles.highlight} numberOfLines={2}>
+                      {displayedDiary.highlight_quote}
+                    </Text>
+                  </View>
+                </View>
 
-          {displayedDiary && (
-            <View style={styles.content}>
-              <View style={styles.sheepPreview}>
-                <SheepSprite
-                  {...diaryToSheepAppearance(displayedDiary)}
-                  eye={eye}
-                  state="idle"
-                  animated={false}
-                  scale={PREVIEW_SCALE}
-                />
+                <ScrollView style={styles.transcriptContainer} bounces={false} overScrollMode="never">
+                  <Text style={styles.transcript}>{displayedDiary.transcribed_text}</Text>
+                </ScrollView>
               </View>
-              <EmotionBadge emotion={displayedDiary.emotion} />
-              <Text style={styles.date}>{formatDate(displayedDiary.created_at)}</Text>
-              <Text style={styles.quote}>「{displayedDiary.highlight_quote}」</Text>
-              <Text style={styles.transcript}>{displayedDiary.transcribed_text}</Text>
-            </View>
-          )}
+            )}
+          </ImageBackground>
         </View>
       </View>
     </Modal>
@@ -73,22 +79,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sheet: {
-    backgroundColor: "#fff",
-    borderWidth: 3,
-    borderRadius: 40,
     width: 305,
-    maxHeight: "80%",
-    paddingBottom: 24,
-  },
-  header: {
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
+    height: 430,
   },
   closeButton: {
     position: "absolute",
@@ -100,43 +92,63 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
   },
+  sheetInner: {
+    flex: 1,
+    overflow: "hidden",
+    padding: 30,
+  },
   content: {
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  sheepPreview: {
-    width: 160,
-    height: 160,
-    alignItems: "center",
-    justifyContent: "center",
   },
   date: {
     fontFamily: "SetoFont",
-    fontSize: 12,
-    color: "#999",
-    marginTop: 8,
+    fontSize: 20,
+    color: "#000",
   },
-  quote: {
+  sheepPreview: {
+    width: 200,
+    height: 200,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 35,
+  },
+  fukidashiOverlay: {
+    position: "absolute",
+    top: -20,
+    // right: 0,
+    // bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fukidashi: {
+    width: 125,
+    height: 55,
+  },
+  highlight: {
+    position: "absolute",
+    top: 7,
+    left: 12,
     fontFamily: "SetoFont",
-    fontSize: 17,
-    lineHeight: 17 * 1.3,
-    fontWeight: "600",
-    color: "#333",
-    marginTop: 16,
-    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 14 * 1.2,
+    color: "#000",
+    width: 110,
+  },
+  transcriptContainer: {
+    marginTop: 10,
+    width: 200,
+    height: 100,
+    alignSelf: "center",
+  },
+  transcript: {
+    fontFamily: "SetoFont",
+    fontSize: 14,
+    lineHeight: 14 * 1.3,
+    color: "#000",
   },
   stars: {
     marginTop: 20,
     alignSelf: "stretch",
     gap: 4,
-  },
-  transcript: {
-    fontFamily: "SetoFont",
-    marginTop: 20,
-    fontSize: 14,
-    lineHeight: 14 * 1.3,
-    color: "#666",
-    alignSelf: "stretch",
   },
 });

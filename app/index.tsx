@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Dimensions, Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { clamp, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { CharacterPreviewModal } from "../components/character-preview-modal";
@@ -9,11 +9,20 @@ import { IsometricBackground } from "../components/isometric-background";
 import { RoamingSheep } from "../components/roaming-sheep";
 import { BodyLevel, BodySize, EYE_VARIANTS, EyeVariant, RareHornKey } from "../components/sheep-sprite";
 import { useAuth } from "../contexts/auth-context";
+import { useDiaries } from "../contexts/diaries-context";
 import { supabase } from "../lib/supabase";
 import { eyeVariantFromMetadata } from "../lib/eye-preference";
+import { EMOTION_ICON_KEYS, EMOTION_ICON_SOURCES, EMOTION_ICON_TO_EMOTION } from "../lib/emotion-icons";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
-import { CLOSE_BUTTON_SOURCE } from "../lib/ui-assets";
-import { listVoiceDiaries, VoiceDiary } from "../lib/voice-diary-api";
+import { PAPER_TEXTURE_SOURCE, TEXTURE_BLEND_MODE } from "../lib/texture-assets";
+import {
+  CALENDAR_BUTTON_SOURCE,
+  CLOSE_BUTTON_SOURCE,
+  SORT_BUTTON_ACTIVE_SOURCE,
+  SORT_BUTTON_SOURCE,
+  SORT_FUKIDASHI_SOURCE,
+} from "../lib/ui-assets";
+import { VoiceDiary } from "../lib/voice-diary-api";
 
 type SheepEntry = {
   id: string;
@@ -36,9 +45,27 @@ const WORLD_HEIGHT = SCREEN_HEIGHT + PAN_MARGIN * 2;
 // At most this many diaries become roaming sheep, chosen at random.
 const MAX_SHEEP = 15;
 
+// World coordinate that sits at the screen center when the pan is at its
+// default (home) offset.
+const HOME_CENTER_X = SCREEN_WIDTH / 2 + PAN_MARGIN;
+const HOME_CENTER_Y = SCREEN_HEIGHT / 2 + PAN_MARGIN;
+
 // Keeps the bottom panel's height in sync with the diary button below.
 const DIARY_BUTTON_BOTTOM = 50;
 const DIARY_BUTTON_SIZE = 100;
+
+// Sort button sits to the left of the diary button, vertically centered on it.
+const SORT_BUTTON_SIZE = 120;
+const SORT_BUTTON_GAP = 20;
+const SORT_BUTTON_BOTTOM = DIARY_BUTTON_BOTTOM + (DIARY_BUTTON_SIZE - SORT_BUTTON_SIZE) / 2;
+const SORT_BUBBLE_BOTTOM = SORT_BUTTON_BOTTOM + SORT_BUTTON_SIZE - 10;
+const SORT_ICON_SIZE = 35;
+const SORT_ICON_GAP = 15;
+
+// Calendar button sits to the right of the diary button, vertically centered on it.
+const CALENDAR_BUTTON_SIZE = 100;
+const CALENDAR_BUTTON_GAP = 30;
+const CALENDAR_BUTTON_BOTTOM = DIARY_BUTTON_BOTTOM + (DIARY_BUTTON_SIZE - CALENDAR_BUTTON_SIZE) / 2;
 
 function pickRandomSubset<T>(items: T[], count: number): T[] {
   const pool = [...items];
@@ -52,8 +79,7 @@ function pickRandomSubset<T>(items: T[], count: number): T[] {
 export default function Index() {
   const router = useRouter();
   const { session } = useAuth();
-  const [diarySheep, setDiarySheep] = useState<SheepEntry[]>([]);
-  const [diaries, setDiaries] = useState<VoiceDiary[]>([]);
+  const { diaries, refresh: refreshDiaries } = useDiaries();
   const [globalEye, setGlobalEye] = useState<EyeVariant>(EYE_VARIANTS[0]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedDiary, setSelectedDiary] = useState<VoiceDiary | null>(null);
@@ -61,6 +87,9 @@ export default function Index() {
   const [readyIds, setReadyIds] = useState<Set<string>>(new Set());
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [sortEmotion, setSortEmotion] = useState<string | null>(null);
+  const [gatherPoint, setGatherPoint] = useState<{ token: number; x: number; y: number } | null>(null);
   const translateX = useSharedValue(-PAN_MARGIN);
   const translateY = useSharedValue(-PAN_MARGIN);
 
@@ -84,30 +113,21 @@ export default function Index() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!session) {
-        setDiarySheep([]);
-        setDiaries([]);
-        setFetchDone(true);
-        return;
-      }
-      listVoiceDiaries()
-        .then((fetched) => {
-          const selected = pickRandomSubset(fetched, MAX_SHEEP);
-          setDiaries(selected);
-          setDiarySheep(
-            selected.map((diary) => ({
-              id: `diary-${diary.id}`,
-              diaryId: diary.id,
-              ...diaryToSheepAppearance(diary),
-            })),
-          );
-        })
-        .catch(() => {
-          // 羊表示はおまけ機能のため、取得失敗時は静かに無視する
-        })
-        .finally(() => setFetchDone(true));
-    }, [session]),
+      refreshDiaries().finally(() => setFetchDone(true));
+    }, [refreshDiaries]),
   );
+
+  // Random subset (capped at MAX_SHEEP) of whichever diaries currently
+  // match the sort filter, drawn from the full list — not just whatever
+  // happened to already be roaming.
+  const diarySheep = useMemo<SheepEntry[]>(() => {
+    const matching = sortEmotion ? diaries.filter((d) => d.emotion === sortEmotion) : diaries;
+    return pickRandomSubset(matching, MAX_SHEEP).map((diary) => ({
+      id: `diary-${diary.id}`,
+      diaryId: diary.id,
+      ...diaryToSheepAppearance(diary),
+    }));
+  }, [diaries, sortEmotion]);
 
   const handleSheepReady = (id: string) => {
     setReadyIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
@@ -134,6 +154,13 @@ export default function Index() {
     }
   };
 
+  const handleSelectEmotion = (emotion: string) => {
+    setSortEmotion(emotion);
+    translateX.value = -PAN_MARGIN;
+    translateY.value = -PAN_MARGIN;
+    setGatherPoint({ token: Date.now(), x: HOME_CENTER_X, y: HOME_CENTER_Y });
+  };
+
   return (
     <View style={styles.container}>
       <GestureDetector gesture={panGesture}>
@@ -141,7 +168,7 @@ export default function Index() {
           <IsometricBackground />
           {diarySheep.map(({ id, bodyLevel, bodySize, bodyColor, hornColor, hornVariant, rareHorn, diaryId }) => (
             <RoamingSheep
-              key={id}
+              key={gatherPoint ? `${id}-${gatherPoint.token}` : id}
               bodyLevel={bodyLevel}
               bodySize={bodySize}
               eye={globalEye}
@@ -153,6 +180,9 @@ export default function Index() {
               areaHeight={WORLD_HEIGHT}
               onPress={() => setSelectedDiary(diaries.find((d) => d.id === diaryId) ?? null)}
               onReady={() => handleSheepReady(id)}
+              spawnX={gatherPoint?.x}
+              spawnY={gatherPoint?.y}
+              highlightQuote={diaries.find((d) => d.id === diaryId)?.highlight_quote}
             />
           ))}
         </Animated.View>
@@ -174,6 +204,32 @@ export default function Index() {
         <Text style={styles.diaryButtonText}>音声日記</Text>
       </Pressable>
 
+      <Pressable style={styles.sortButton} onPress={() => setSortOpen((open) => !open)}>
+        <Image
+          source={sortOpen ? SORT_BUTTON_ACTIVE_SOURCE : SORT_BUTTON_SOURCE}
+          style={styles.sortButtonImage}
+          resizeMode="contain"
+        />
+      </Pressable>
+
+      <Pressable style={styles.calendarButton} onPress={() => router.push("/calendar")}>
+        <Image source={CALENDAR_BUTTON_SOURCE} style={styles.calendarButtonImage} resizeMode="contain" />
+      </Pressable>
+
+      {sortOpen && (
+        <View style={styles.sortBubbleWrap} pointerEvents="box-none">
+          <ImageBackground source={SORT_FUKIDASHI_SOURCE} style={styles.sortBubble} resizeMode="stretch">
+            <View style={styles.sortIconsRow}>
+              {EMOTION_ICON_KEYS.map((key) => (
+                <Pressable key={key} onPress={() => handleSelectEmotion(EMOTION_ICON_TO_EMOTION[key])}>
+                  <Image source={EMOTION_ICON_SOURCES[key]} style={styles.sortIcon} resizeMode="contain" />
+                </Pressable>
+              ))}
+            </View>
+          </ImageBackground>
+        </View>
+      )}
+
       <CharacterPreviewModal
         visible={previewVisible}
         onClose={() => setPreviewVisible(false)}
@@ -182,6 +238,11 @@ export default function Index() {
       />
 
       <DiaryDetailModal diary={selectedDiary} onClose={() => setSelectedDiary(null)} eye={globalEye} />
+
+      {/* Single screen-wide texture layer instead of masking it per sheep —
+          masking+recompositing it per sheep every animation frame saturated
+          the UI thread once many roaming sheep were on screen at once. */}
+      <Image source={PAPER_TEXTURE_SOURCE} resizeMode="repeat" style={styles.textureOverlay} />
     </View>
   );
 }
@@ -209,6 +270,12 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
   },
+  textureOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999999,
+    mixBlendMode: TEXTURE_BLEND_MODE,
+    pointerEvents: "none",
+  },
   menuButton: {
     position: "absolute",
     top: 60,
@@ -229,7 +296,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: DIARY_BUTTON_BOTTOM + DIARY_BUTTON_SIZE / 2,
-    backgroundColor: "#C7DCD7",
+    backgroundColor: "#008CFC",
   },
   diaryButton: {
     position: "absolute",
@@ -239,7 +306,7 @@ const styles = StyleSheet.create({
     width: DIARY_BUTTON_SIZE,
     height: DIARY_BUTTON_SIZE,
     borderRadius: DIARY_BUTTON_SIZE / 2,
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,
@@ -249,5 +316,55 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
     textAlign: "center",
+  },
+  sortButton: {
+    position: "absolute",
+    bottom: SORT_BUTTON_BOTTOM,
+    left: "50%",
+    marginLeft: -(DIARY_BUTTON_SIZE / 2 + SORT_BUTTON_GAP + SORT_BUTTON_SIZE),
+    width: SORT_BUTTON_SIZE,
+    height: SORT_BUTTON_SIZE,
+    zIndex: 9999,
+  },
+  sortButtonImage: {
+    width: SORT_BUTTON_SIZE,
+    height: SORT_BUTTON_SIZE,
+  },
+  calendarButton: {
+    position: "absolute",
+    bottom: CALENDAR_BUTTON_BOTTOM,
+    left: "50%",
+    marginLeft: DIARY_BUTTON_SIZE / 2 + CALENDAR_BUTTON_GAP,
+    width: CALENDAR_BUTTON_SIZE,
+    height: CALENDAR_BUTTON_SIZE,
+    zIndex: 9999,
+  },
+  calendarButtonImage: {
+    width: CALENDAR_BUTTON_SIZE,
+    height: CALENDAR_BUTTON_SIZE,
+  },
+  sortBubbleWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: SORT_BUBBLE_BOTTOM,
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  sortBubble: {
+    width: 340,
+    height: 98,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 25,
+  },
+  sortIconsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SORT_ICON_GAP,
+  },
+  sortIcon: {
+    width: SORT_ICON_SIZE,
+    height: SORT_ICON_SIZE,
   },
 });

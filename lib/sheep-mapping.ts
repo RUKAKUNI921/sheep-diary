@@ -24,12 +24,16 @@ const RARE_HORN_RULES: { bodyLevel: BodyLevel; emotion: string; subEmotion: stri
 export function rareHornForCombo(
   bodyLevel: BodyLevel,
   emotion: string,
-  subEmotion: string,
+  subEmotion: string | null,
 ): RareHornKey | undefined {
   return RARE_HORN_RULES.find(
     (rule) => rule.bodyLevel === bodyLevel && rule.emotion === emotion && rule.subEmotion === subEmotion,
   )?.horn;
 }
+
+// Shown as the horn color when a diary has no sub_emotion (Gemini couldn't
+// clearly read a secondary emotion), instead of any emotion's color.
+export const NO_SUB_EMOTION_HORN_COLOR = "#F4F9F4";
 
 export type SheepAppearance = {
   bodyLevel: BodyLevel;
@@ -48,7 +52,7 @@ export function diaryToSheepAppearance(
     bodyLevel,
     bodySize: volumeScoreToBodySize(diary.volume_score),
     bodyColor: colorForEmotion(diary.emotion),
-    hornColor: colorForEmotion(diary.sub_emotion),
+    hornColor: diary.sub_emotion ? colorForEmotion(diary.sub_emotion) : NO_SUB_EMOTION_HORN_COLOR,
     hornVariant: diary.horn_variant ?? undefined,
     rareHorn: rareHornForCombo(bodyLevel, diary.emotion, diary.sub_emotion),
   };

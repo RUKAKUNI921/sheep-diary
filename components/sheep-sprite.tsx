@@ -1,5 +1,7 @@
+import MaskedView from "@react-native-masked-view/masked-view";
 import { useEffect, useRef, useState } from "react";
-import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
+import { Animated, Easing, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
+import { PAPER_TEXTURE_SOURCE, TEXTURE_BLEND_MODE } from "../lib/texture-assets";
 
 const FRAME_SIZE = 256;
 const FRAME_COUNT = 6;
@@ -28,15 +30,20 @@ export type SheepAnimationState = "idle" | "walk";
 
 const STATES: SheepAnimationState[] = ["idle", "walk"];
 
-// leg, body-tint, body-shade, arm, horn-tint, horn-shade, head, eye, each
-// rendering idle + walk, plus one static shadow image that doesn't animate.
-// A rare horn collapses horn-tint/horn-shade into a single "horn" layer
-// since it's rendered once instead of via the tint+shade technique.
-const NORMAL_LAYER_COUNT = 8;
-const RARE_HORN_LAYER_COUNT = 7;
+// Texture mask images: shadow, leg, body, arm, horn, head, eye (one frame
+// each, not doubled for idle/walk), plus the texture image itself.
+const TEXTURE_IMAGE_COUNT = 8;
 
 function sameForBoth(source: ImageSourcePropType): Record<SheepAnimationState, ImageSourcePropType> {
   return { idle: source, walk: source };
+}
+
+// Most layers use the same art for idle and walk (only leg/arm have
+// distinct sheets), so only one image actually gets mounted for them — see
+// the dedup in renderFrames. Used to keep the "all images loaded" count
+// (totalLayerImages below) in sync with what's actually mounted.
+function layerImageCount(sheets: Record<SheepAnimationState, ImageSourcePropType>): number {
+  return sheets.idle === sheets.walk ? 1 : 2;
 }
 
 // Body doesn't have separate walk art yet, so the same sheet is used for
@@ -189,6 +196,12 @@ type SheepSpriteProps = {
   // sync that hiding protects against (arms/head popping in before legs)
   // doesn't matter for a single decorative still image.
   hideUntilReady?: boolean;
+  // Adds the paper-texture overlay, masked to the sprite's silhouette, via a
+  // per-sheep MaskedView. Fine for a single preview sprite (character
+  // preview modal, diary detail modal); the home screen instead paints one
+  // screen-wide texture layer on top of everything (see app/index.tsx)
+  // rather than paying for a MaskedView composite per roaming sheep.
+  textured?: boolean;
 };
 
 export function SheepSprite({
@@ -205,13 +218,21 @@ export function SheepSprite({
   animated = true,
   onReady,
   hideUntilReady = true,
+  textured = false,
 }: SheepSpriteProps) {
   const [randomHornVariant] = useState(
     () => 1 + Math.floor(Math.random() * HORN_VARIANT_COUNT),
   );
   const hornSheets = HORN_SHEETS[(hornVariant ?? randomHornVariant) - 1];
+  const bodySheets = BODY_SHEETS[bodyLevel][bodySize];
   const [displayState, setDisplayState] = useState(state);
-  const [frame, setFrame] = useState(0);
+  const displayStateRef = useRef(state);
+  // Continuous 0..FRAME_COUNT progress through one walk/idle cycle, driven
+  // entirely on the UI thread (see the effect below) and turned into
+  // discrete per-frame jumps via the staircase interpolation in
+  // frameTranslateX — so the sheet's translateX can't lag behind
+  // position animations, which are also native-driven.
+  const frameAnim = useRef(new Animated.Value(0)).current;
   const targetState = useRef(state);
   targetState.current = state;
   const onStateChangeRef = useRef(onStateChange);
@@ -220,7 +241,14 @@ export function SheepSprite({
   onReadyRef.current = onReady;
   const [loadedCount, setLoadedCount] = useState(0);
   const totalLayerImages =
-    (rareHorn ? RARE_HORN_LAYER_COUNT : NORMAL_LAYER_COUNT) * STATES.length + 1;
+    1 /* shadow */ +
+    layerImageCount(LEG_SHEETS) +
+    layerImageCount(bodySheets) * 2 /* tint + shade */ +
+    layerImageCount(ARM_SHEETS) +
+    (rareHorn ? layerImageCount(RARE_HORN_SHEETS[rareHorn]) : layerImageCount(hornSheets) * 2) /* tint + shade */ +
+    layerImageCount(HEAD_SHEETS) +
+    layerImageCount(EYE_SHEETS[eye]) +
+    (textured ? TEXTURE_IMAGE_COUNT : 0);
   const ready = loadedCount >= totalLayerImages;
   const handleImageLoad = () => setLoadedCount((count) => count + 1);
 
@@ -230,50 +258,131 @@ export function SheepSprite({
 
   useEffect(() => {
     if (!animated) return;
-    const id = setInterval(() => {
-      setFrame((prev) => {
-        const next = (prev + 1) % FRAME_COUNT;
-        if (next === 0 && targetState.current !== displayState) {
+    let cancelled = false;
+    frameAnim.setValue(0);
+
+    // One continuous native-driven timing per full cycle (all FRAME_COUNT
+    // frames), not one per frame — so a JS callback only fires once per
+    // cycle (e.g. every 900ms) instead of once per frame (every 150ms).
+    // The actual per-frame stepping happens via the staircase interpolation
+    // in frameTranslateX below, entirely on the UI thread.
+    const runCycle = () => {
+      if (cancelled) return;
+      Animated.timing(frameAnim, {
+        toValue: FRAME_COUNT,
+        duration: FRAME_COUNT * FRAME_DURATIONS_MS[displayStateRef.current],
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished || cancelled) return;
+        frameAnim.setValue(0);
+        if (targetState.current !== displayStateRef.current) {
+          displayStateRef.current = targetState.current;
           setDisplayState(targetState.current);
           onStateChangeRef.current?.(targetState.current);
         }
-        return next;
+        runCycle();
       });
-    }, FRAME_DURATIONS_MS[displayState]);
-    return () => clearInterval(id);
-  }, [displayState, animated]);
+    };
+
+    runCycle();
+    return () => {
+      cancelled = true;
+    };
+  }, [animated, frameAnim]);
 
   const size = FRAME_SIZE * scale;
+  // Staircase interpolation: holds each frame's translateX for the
+  // [i, i+1) stretch of frameAnim's progress, then jumps at the next
+  // integer, instead of sliding continuously between frames.
+  const frameStepEpsilon = 0.001;
+  const frameStepInputRange: number[] = [];
+  const frameStepOutputRange: number[] = [];
+  for (let i = 0; i < FRAME_COUNT; i++) {
+    frameStepInputRange.push(i, i + 1 - frameStepEpsilon);
+    frameStepOutputRange.push(-i * size, -i * size);
+  }
+  frameStepInputRange.push(FRAME_COUNT);
+  frameStepOutputRange.push(-(FRAME_COUNT - 1) * size);
+  const frameTranslateX = frameAnim.interpolate({
+    inputRange: frameStepInputRange,
+    outputRange: frameStepOutputRange,
+  });
 
   const renderFrames = (
     layerKey: string,
     sheets: Record<SheepAnimationState, ImageSourcePropType>,
     tintColor?: string,
-  ) =>
-    STATES.map((key) => {
+  ) => {
+    const sheetStyle = {
+      width: FRAME_SIZE * FRAME_COUNT * scale,
+      height: size,
+      transform: [{ translateX: frameTranslateX }],
+      tintColor,
+    };
+
+    // Idle and walk share the same art for most layers (only leg/arm have
+    // distinct sheets) — mount a single always-visible image instead of two
+    // pixel-identical ones toggled by opacity.
+    if (sheets.idle === sheets.walk) {
+      return (
+        <Animated.Image
+          key={layerKey}
+          source={sheets.idle}
+          onLoad={handleImageLoad}
+          style={[styles.sheet, sheetStyle]}
+          resizeMode="stretch"
+        />
+      );
+    }
+
+    return STATES.map((key) => {
       const isActive = key === displayState;
       return (
-        <Image
+        <Animated.Image
           key={`${layerKey}-${key}`}
           source={sheets[key]}
           onLoad={handleImageLoad}
-          style={[
-            styles.sheet,
-            {
-              width: FRAME_SIZE * FRAME_COUNT * scale,
-              height: size,
-              opacity: isActive ? 1 : 0,
-              transform: [{ translateX: -(isActive ? frame : 0) * size }],
-              tintColor,
-            },
-          ]}
+          style={[styles.sheet, sheetStyle, { opacity: isActive ? 1 : 0 }]}
           resizeMode="stretch"
         />
       );
     });
+  };
 
-  const bodySheets = BODY_SHEETS[bodyLevel][bodySize];
   const opacity = !hideUntilReady || ready ? 1 : 0;
+
+  // Silhouette of the sprite's currently visible frame, used as an alpha
+  // mask so the texture overlay only shows up on the sheep itself instead
+  // of leaking into the transparent margins around it.
+  const renderMaskLayer = (layerKey: string, sheets: Record<SheepAnimationState, ImageSourcePropType>) => (
+    <Animated.Image
+      key={layerKey}
+      source={sheets[displayState]}
+      onLoad={handleImageLoad}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: FRAME_SIZE * FRAME_COUNT * scale,
+        height: size,
+        transform: [{ translateX: frameTranslateX }],
+      }}
+      resizeMode="stretch"
+    />
+  );
+
+  const maskElement = textured ? (
+    <View style={{ width: size, height: size }}>
+      <Image source={SHADOW_SOURCE} onLoad={handleImageLoad} style={{ width: size, height: size }} resizeMode="stretch" />
+      {renderMaskLayer("mask-leg", LEG_SHEETS)}
+      {renderMaskLayer("mask-body", bodySheets)}
+      {renderMaskLayer("mask-arm", ARM_SHEETS)}
+      {rareHorn ? renderMaskLayer("mask-horn", RARE_HORN_SHEETS[rareHorn]) : renderMaskLayer("mask-horn", hornSheets)}
+      {renderMaskLayer("mask-head", HEAD_SHEETS)}
+      {renderMaskLayer("mask-eye", EYE_SHEETS[eye])}
+    </View>
+  ) : null;
 
   return (
     <View style={[styles.viewport, { width: size, height: size, opacity }]}>
@@ -304,6 +413,19 @@ export function SheepSprite({
       )}
       {renderFrames("head", HEAD_SHEETS)}
       {renderFrames("eye", EYE_SHEETS[eye])}
+      {textured && (
+        <MaskedView
+          style={[styles.sheet, styles.texture, { width: size, height: size }]}
+          maskElement={maskElement!}
+        >
+          <Image
+            source={PAPER_TEXTURE_SOURCE}
+            onLoad={handleImageLoad}
+            resizeMode="repeat"
+            style={{ width: size, height: size }}
+          />
+        </MaskedView>
+      )}
     </View>
   );
 }
@@ -317,6 +439,9 @@ const styles = StyleSheet.create({
   },
   multiply: {
     mixBlendMode: "multiply",
+  },
+  texture: {
+    mixBlendMode: TEXTURE_BLEND_MODE,
   },
   sheet: {
     position: "absolute",

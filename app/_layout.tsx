@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SHEEP_ASSET_SOURCES } from "../components/sheep-sprite";
 import { AuthProvider } from "../contexts/auth-context";
+import { DiariesProvider } from "../contexts/diaries-context";
+import { EMOTION_ICON_ASSET_SOURCES } from "../lib/emotion-icons";
+import { TEXTURE_ASSET_SOURCES } from "../lib/texture-assets";
 import { UI_ASSET_SOURCES } from "../lib/ui-assets";
 
 SplashScreen.preventAutoHideAsync();
@@ -18,7 +21,7 @@ export default function RootLayout() {
   const ready = assetsReady && (fontsLoaded || !!fontError);
 
   useEffect(() => {
-    Asset.loadAsync([...SHEEP_ASSET_SOURCES, ...UI_ASSET_SOURCES])
+    Asset.loadAsync([...SHEEP_ASSET_SOURCES, ...UI_ASSET_SOURCES, ...TEXTURE_ASSET_SOURCES, ...EMOTION_ICON_ASSET_SOURCES])
       .catch(() => {
         // 羊表示はおまけ機能のため、プリロード失敗時も起動をブロックしない
       })
@@ -34,7 +37,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <DiariesProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+        </DiariesProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
