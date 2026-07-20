@@ -7,6 +7,7 @@ const SHEEP_DISPLAY_SIZE = 180;
 const FRAME_SIZE = 256;
 const SHEEP_SCALE = SHEEP_DISPLAY_SIZE / FRAME_SIZE;
 const SHEEP_SIZE = SHEEP_DISPLAY_SIZE;
+export const ROAMING_SHEEP_SIZE = SHEEP_DISPLAY_SIZE;
 const SPEED = 60; // px / sec
 const IDLE_MIN_MS = 1600;
 const IDLE_MAX_MS = 4000;
@@ -120,6 +121,7 @@ export function RoamingSheep({
   const [facingLeft, setFacingLeft] = useState(false);
   const [zIndex, setZIndex] = useState(0);
   const [bubbleVisible, setBubbleVisible] = useState(false);
+  const [bubbleLineCount, setBubbleLineCount] = useState(1);
   const walkStartResolver = useRef<(() => void) | null>(null);
 
   // Tracks position.y continuously so stacking order stays correct
@@ -168,7 +170,7 @@ export function RoamingSheep({
     let cancelled = false;
 
     const runLoop = async () => {
-      const jitter = 50;
+      const jitter = 110;
       const startX =
         spawnX !== undefined
           ? Math.min(Math.max(spawnX - SHEEP_SIZE / 2 + (Math.random() * 2 - 1) * jitter, 0), areaWidth - SHEEP_SIZE)
@@ -261,7 +263,10 @@ export function RoamingSheep({
       {bubbleVisible && highlightQuote && (
         <View style={styles.bubbleWrap} pointerEvents="none">
           <Image source={FUKIDASHI_SOURCE} style={styles.bubbleImage} resizeMode="contain" />
-          <Text style={styles.bubbleText} numberOfLines={2}>
+          <Text
+            style={[styles.bubbleText, bubbleLineCount === 1 ? styles.bubbleTextOneLine : styles.bubbleTextTwoLines]}
+            onTextLayout={(e) => setBubbleLineCount(e.nativeEvent.lines.length)}
+          >
             {highlightQuote}
           </Text>
         </View>
@@ -289,12 +294,19 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     position: "absolute",
-    top: 7,
-    left: 40,
-    width: 110,
+    left: 33.5,
+    width: 113,
     fontFamily: "SetoFont",
     fontSize: 14,
     lineHeight: 14 * 1.2,
     color: "#000",
+  },
+  // 2行分の高さを前提にバブル内で縦中央になるよう調整済みの位置。1行の
+  // ときはその半分だけ下にずらして、同じ基準で中央に来るようにする。
+  bubbleTextTwoLines: {
+    top: 7,
+  },
+  bubbleTextOneLine: {
+    top: 7 + (14 * 1.2) / 2,
   },
 });

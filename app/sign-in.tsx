@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,6 +10,7 @@ import {
   TextInput,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import { CLOSE_BUTTON_SOURCE } from "../lib/ui-assets";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -39,6 +41,10 @@ export default function SignInScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <Pressable style={styles.homeButton} onPress={() => router.back()} hitSlop={12}>
+        <Image source={CLOSE_BUTTON_SOURCE} style={styles.homeButtonImage} resizeMode="contain" />
+      </Pressable>
+
       <Text style={styles.title}>
         {mode === "sign-in" ? "サインイン" : "新規登録"}
       </Text>
@@ -93,7 +99,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#fff",
+    backgroundColor: "#F4F9F4",
+  },
+  homeButton: {
+    position: "absolute",
+    top: 60,
+    left: 12,
+  },
+  homeButtonImage: {
+    width: 32,
+    height: 32,
   },
   title: {
     fontSize: 22,

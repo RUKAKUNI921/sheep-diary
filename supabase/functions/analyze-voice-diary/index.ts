@@ -10,14 +10,16 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const EMOTIONS = ["不安・鬱", "楽しい・嬉しい", "怒り・イライラ", "悲しみ", "安心・平常", "好き・愛"] as const;
 type Emotion = (typeof EMOTIONS)[number];
 
-// 5段階正規化の閾値（叩き台。運用しながら調整する）
-const VOLUME_CHAR_THRESHOLDS = [50, 150, 400, 800];
+// 5段階正規化の閾値。
+// volume/pauseは実データ15件（文字数・発話時間）を5等分するよう再調整した
+// （元の[50,150,400,800]は3段目に集中しすぎていた）。speedは未調整。
+const VOLUME_CHAR_THRESHOLDS = [150, 230, 285, 330];
 const SPEED_CPS_THRESHOLDS = [3, 5, 7, 9];
 // 「間」の指標には「発話時間 ÷ 文字数」（1文字あたりの秒数）を使う。
 // セグメント間の無音秒数（totalGap）で試したところ、Geminiの書き起こしは
 // 実際の音声にある間をほぼ拾わずセグメントを隙間なく繋げて返す傾向があり、
 // totalGapが常に0近辺に張り付いてpause_scoreが動かなかったため変更。
-const PAUSE_SECONDS_PER_CHAR_THRESHOLDS = [0.15, 0.22, 0.3, 0.4];
+const PAUSE_SECONDS_PER_CHAR_THRESHOLDS = [0.182, 0.197, 0.213, 0.24];
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

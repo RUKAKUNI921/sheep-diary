@@ -2,6 +2,7 @@ import MaskedView from "@react-native-masked-view/masked-view";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 import { PAPER_TEXTURE_SOURCE, TEXTURE_BLEND_MODE } from "../lib/texture-assets";
+import { BODY_TINTED_SHEETS, HORN_TINTED_SHEETS } from "./tinted-character-sheets";
 
 const FRAME_SIZE = 256;
 const FRAME_COUNT = 6;
@@ -36,6 +37,16 @@ const TEXTURE_IMAGE_COUNT = 8;
 
 function sameForBoth(source: ImageSourcePropType): Record<SheepAnimationState, ImageSourcePropType> {
   return { idle: source, walk: source };
+}
+
+// scripts/generate-tinted-character-assets.js pre-bakes the tint+multiply
+// composite (see body-tint/body-shade below) for every color the app can
+// actually pass in (the emotion palette). Looking one up here avoids both
+// the extra image layer and the mixBlendMode:"multiply" composite at
+// runtime; colors outside that pre-baked set (shouldn't normally happen)
+// fall back to computing the composite live, same as before.
+function colorSlug(hex: string): string {
+  return hex.replace("#", "").toLowerCase();
 }
 
 // Most layers use the same art for idle and walk (only leg/arm have
@@ -223,8 +234,11 @@ export function SheepSprite({
   const [randomHornVariant] = useState(
     () => 1 + Math.floor(Math.random() * HORN_VARIANT_COUNT),
   );
-  const hornSheets = HORN_SHEETS[(hornVariant ?? randomHornVariant) - 1];
+  const activeHornVariant = hornVariant ?? randomHornVariant;
+  const hornSheets = HORN_SHEETS[activeHornVariant - 1];
   const bodySheets = BODY_SHEETS[bodyLevel][bodySize];
+  const bodyTinted = BODY_TINTED_SHEETS[bodyLevel]?.[bodySize]?.[colorSlug(bodyColor)];
+  const hornTinted = rareHorn ? undefined : HORN_TINTED_SHEETS[activeHornVariant]?.[colorSlug(hornColor)];
   const [displayState, setDisplayState] = useState(state);
   const displayStateRef = useRef(state);
   // Continuous 0..FRAME_COUNT progress through one walk/idle cycle, driven
@@ -240,12 +254,18 @@ export function SheepSprite({
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
   const [loadedCount, setLoadedCount] = useState(0);
+  const bodyImageCount = bodyTinted ? 1 : layerImageCount(bodySheets) * 2 /* tint + shade */;
+  const hornImageCount = rareHorn
+    ? layerImageCount(RARE_HORN_SHEETS[rareHorn])
+    : hornTinted
+      ? 1
+      : layerImageCount(hornSheets) * 2 /* tint + shade */;
   const totalLayerImages =
     1 /* shadow */ +
     layerImageCount(LEG_SHEETS) +
-    layerImageCount(bodySheets) * 2 /* tint + shade */ +
+    bodyImageCount +
     layerImageCount(ARM_SHEETS) +
-    (rareHorn ? layerImageCount(RARE_HORN_SHEETS[rareHorn]) : layerImageCount(hornSheets) * 2) /* tint + shade */ +
+    hornImageCount +
     layerImageCount(HEAD_SHEETS) +
     layerImageCount(EYE_SHEETS[eye]) +
     (textured ? TEXTURE_IMAGE_COUNT : 0);
@@ -394,18 +414,30 @@ export function SheepSprite({
         resizeMode="stretch"
       />
       {renderFrames("leg", LEG_SHEETS)}
-      {/* Body color: a solid tint clipped to the sprite's alpha shape, with
-          the original shading multiplied on top to keep light/dark detail. */}
-      <View style={styles.layer}>{renderFrames("body-tint", bodySheets, bodyColor)}</View>
-      <View style={[styles.layer, styles.multiply]}>{renderFrames("body-shade", bodySheets)}</View>
+      {bodyTinted ? (
+        // Pre-baked tint+shade composite for this exact color (see
+        // scripts/generate-tinted-character-assets.js) — one image instead
+        // of two layers plus a mixBlendMode:"multiply" composite.
+        renderFrames("body", sameForBoth(bodyTinted))
+      ) : (
+        <>
+          {/* Fallback: solid tint clipped to the sprite's alpha shape, with
+              the original shading multiplied on top to keep light/dark
+              detail. Only hit for a color outside the pre-baked set. */}
+          <View style={styles.layer}>{renderFrames("body-tint", bodySheets, bodyColor)}</View>
+          <View style={[styles.layer, styles.multiply]}>{renderFrames("body-shade", bodySheets)}</View>
+        </>
+      )}
       {renderFrames("arm", ARM_SHEETS)}
       {rareHorn ? (
         // Rare horn art is already fully colored, so it's rendered once
         // as-is instead of the tint+shade technique used for default horns.
         renderFrames("horn", RARE_HORN_SHEETS[rareHorn])
+      ) : hornTinted ? (
+        renderFrames("horn", sameForBoth(hornTinted))
       ) : (
         <>
-          {/* Horn color: same solid-tint-plus-multiplied-shading technique as
+          {/* Fallback: same solid-tint-plus-multiplied-shading technique as
               the body, so the horn art's own shading/outline still shows. */}
           <View style={styles.layer}>{renderFrames("horn-tint", hornSheets, hornColor)}</View>
           <View style={[styles.layer, styles.multiply]}>{renderFrames("horn-shade", hornSheets)}</View>

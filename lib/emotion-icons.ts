@@ -24,3 +24,11 @@ export const EMOTION_ICON_TO_EMOTION: Record<EmotionIconKey, string> = {
 
 // Every emotion icon image, for preloading at app startup.
 export const EMOTION_ICON_ASSET_SOURCES: number[] = Object.values(EMOTION_ICON_SOURCES) as number[];
+
+const EMOTION_TO_ICON_KEY: Record<string, EmotionIconKey> = Object.fromEntries(
+  Object.entries(EMOTION_ICON_TO_EMOTION).map(([key, emotion]) => [emotion, key as EmotionIconKey]),
+);
+
+export function emotionIconForEmotion(emotion: string): EmotionIconKey | undefined {
+  return EMOTION_TO_ICON_KEY[emotion];
+}

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { colorForEmotion, EMOTION_COLORS } from "../lib/emotion-colors";
@@ -28,6 +29,8 @@ type CharacterPreviewModalProps = {
   onClose: () => void;
   eye: EyeVariant;
   onSelectEye: (eye: EyeVariant) => void;
+  username: string;
+  onChangeUsername: (username: string) => void;
 };
 
 export function CharacterPreviewModal({
@@ -35,7 +38,20 @@ export function CharacterPreviewModal({
   onClose,
   eye,
   onSelectEye,
+  username,
+  onChangeUsername,
 }: CharacterPreviewModalProps) {
+  const [usernameDraft, setUsernameDraft] = useState(username);
+  useEffect(() => {
+    setUsernameDraft(username);
+  }, [username]);
+
+  const commitUsername = () => {
+    const trimmed = usernameDraft.trim();
+    setUsernameDraft(trimmed);
+    if (trimmed !== username) onChangeUsername(trimmed);
+  };
+
   const [bodySize, setBodySize] = useState<BodySize>(BODY_SIZES[0]);
   const [bodyLevel, setBodyLevel] = useState<BodyLevel>(BODY_LEVELS[0]);
   const [bodyEmotion, setBodyEmotion] = useState<string>(EMOTION_NAMES[0]);
@@ -77,6 +93,19 @@ export function CharacterPreviewModal({
           </View>
 
           <ScrollView style={styles.controls}>
+            <Text style={styles.label}>ユーザーネーム</Text>
+            <TextInput
+              style={styles.textInput}
+              value={usernameDraft}
+              onChangeText={setUsernameDraft}
+              onEndEditing={commitUsername}
+              onSubmitEditing={commitUsername}
+              placeholder="ユーザーネームを入力"
+              placeholderTextColor="#999"
+              maxLength={20}
+              returnKeyType="done"
+            />
+
             <Text style={styles.label}>状態</Text>
             <View style={styles.row}>
               {(["idle", "walk"] as SheepAnimationState[]).map((option) => (
@@ -209,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#fff",
+    backgroundColor: "#F4F9F4",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: "80%",
@@ -250,6 +279,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  textInput: {
+    backgroundColor: "#eee",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: "#333",
   },
   chip: {
     paddingVertical: 8,
