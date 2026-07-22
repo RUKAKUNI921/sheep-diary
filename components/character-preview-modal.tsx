@@ -88,7 +88,6 @@ export function CharacterPreviewModal({
               rareHorn={rareHorn}
               state={animationState}
               scale={PREVIEW_SCALE}
-              textured
             />
           </View>
 

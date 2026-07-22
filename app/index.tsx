@@ -16,7 +16,6 @@ import { eyeVariantFromMetadata } from "../lib/eye-preference";
 import { usernameFromMetadata } from "../lib/username";
 import { EMOTION_ICON_KEYS, EMOTION_ICON_SOURCES, EMOTION_ICON_TO_EMOTION } from "../lib/emotion-icons";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
-import { PAPER_TEXTURE_SOURCE, TEXTURE_BLEND_MODE } from "../lib/texture-assets";
 import {
   CALENDAR_BUTTON_SOURCE,
   LOADING_LOGO_SOURCE,
@@ -339,11 +338,6 @@ export default function Index() {
       />
 
       <DiaryDetailModal diary={selectedDiary} onClose={() => setSelectedDiary(null)} eye={globalEye} />
-
-      {/* Single screen-wide texture layer instead of masking it per sheep —
-          masking+recompositing it per sheep every animation frame saturated
-          the UI thread once many roaming sheep were on screen at once. */}
-      <Image source={PAPER_TEXTURE_SOURCE} resizeMode="repeat" style={styles.textureOverlay} />
     </View>
   );
 }
@@ -377,12 +371,6 @@ const styles = StyleSheet.create({
   loadingImage: {
     width: 250,
     height: 250,
-  },
-  textureOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999999,
-    mixBlendMode: TEXTURE_BLEND_MODE,
-    pointerEvents: "none",
   },
   menuButton: {
     position: "absolute",

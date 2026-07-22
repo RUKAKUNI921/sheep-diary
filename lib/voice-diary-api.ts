@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { HORN_VARIANT_COUNT } from "../components/sheep-sprite";
 import { supabase } from "./supabase";
 
@@ -32,11 +33,20 @@ export async function analyzeVoiceDiary(
   if (!accessToken) throw new Error("サインインが必要です");
 
   const form = new FormData();
-  form.append("audio", {
-    uri: fileUri,
-    name: "voice-diary.m4a",
-    type: mimeType,
-  } as unknown as Blob);
+  if (Platform.OS === "web") {
+    // On web, expo-audio's recorder.uri is a blob: URL and FormData is the
+    // browser's real implementation — it needs an actual Blob/File, not the
+    // {uri, name, type} object React Native's FormData polyfill expects.
+    const blob = await (await fetch(fileUri)).blob();
+    const extension = blob.type.split("/")[1]?.split(";")[0] || "webm";
+    form.append("audio", blob, `voice-diary.${extension}`);
+  } else {
+    form.append("audio", {
+      uri: fileUri,
+      name: "voice-diary.m4a",
+      type: mimeType,
+    } as unknown as Blob);
+  }
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const res = await fetch(`${supabaseUrl}/functions/v1/analyze-voice-diary`, {

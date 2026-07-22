@@ -7,7 +7,6 @@ import { useAuth } from "../contexts/auth-context";
 import { useDiaries } from "../contexts/diaries-context";
 import { eyeVariantFromMetadata } from "../lib/eye-preference";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
-import { PAPER_TEXTURE_SOURCE, TEXTURE_BLEND_MODE } from "../lib/texture-assets";
 import { CLOSE_BUTTON_SOURCE, NAV_BUTTON_SOURCE } from "../lib/ui-assets";
 import { VoiceDiary } from "../lib/voice-diary-api";
 
@@ -222,9 +221,6 @@ export default function CalendarScreen() {
             : undefined
         }
       />
-
-      {/* Same full-screen texture treatment as the home screen. */}
-      <Image source={PAPER_TEXTURE_SOURCE} resizeMode="repeat" style={styles.textureOverlay} />
     </View>
   );
 }
@@ -234,12 +230,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F4F9F4",
     paddingTop: 60,
-  },
-  textureOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999999,
-    mixBlendMode: TEXTURE_BLEND_MODE,
-    pointerEvents: "none",
   },
   header: {
     flexDirection: "row",

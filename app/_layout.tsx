@@ -9,7 +9,6 @@ import { AuthProvider } from "../contexts/auth-context";
 import { DiariesProvider } from "../contexts/diaries-context";
 import { EMOTION_ICON_ASSET_SOURCES } from "../lib/emotion-icons";
 import { GRASS_ASSET_SOURCES } from "../lib/grass-assets";
-import { TEXTURE_ASSET_SOURCES } from "../lib/texture-assets";
 import { UI_ASSET_SOURCES } from "../lib/ui-assets";
 
 SplashScreen.preventAutoHideAsync();
@@ -25,7 +24,6 @@ export default function RootLayout() {
     Asset.loadAsync([
       ...SHEEP_ASSET_SOURCES,
       ...UI_ASSET_SOURCES,
-      ...TEXTURE_ASSET_SOURCES,
       ...EMOTION_ICON_ASSET_SOURCES,
       ...GRASS_ASSET_SOURCES,
     ])

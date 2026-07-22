@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ImageBackground, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { EMOTION_ICON_SOURCES, emotionIconForEmotion } from "../lib/emotion-icons";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
 import { CLOSE_BUTTON_SOURCE, FUKIDASHI_SOURCE, MODAL_BACKGROUND_SOURCE, NAV_BUTTON_SOURCE } from "../lib/ui-assets";
@@ -67,7 +67,6 @@ export function DiaryDetailModal({ diary, onClose, eye, onPrev, onNext }: DiaryD
                     state="idle"
                     animated={false}
                     scale={PREVIEW_SCALE}
-                    textured
                   />
                   <View style={styles.fukidashiOverlay}>
                     <Image source={FUKIDASHI_SOURCE} style={styles.fukidashi} resizeMode="contain" />
@@ -135,6 +134,15 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: "hidden",
     padding: 30,
+    // react-native-web's <ImageBackground> injects the source asset's own
+    // pixel dimensions as an explicit width/height ahead of this style in
+    // its internal style array, which beats flex:1 for sizing the box —
+    // the background then renders at the image's native 927x1302 size
+    // instead of the modal's actual layout size, so only its top-left
+    // corner shows through the overflow:hidden clip. Forcing width/height
+    // to 100% here overrides that. Native's Yoga layout doesn't have this
+    // quirk, so it only needs the override on web.
+    ...(Platform.OS === "web" ? { width: "100%", height: "100%" } : null),
   },
   emotionWatermark: {
     position: "absolute",
@@ -184,10 +192,10 @@ const styles = StyleSheet.create({
   // 2行分の高さを前提にバブル内で縦中央になるよう調整済みの位置。1行の
   // ときはその半分だけ下にずらして、同じ基準で中央に来るようにする。
   highlightTwoLines: {
-    top: 7,
+    top: 3,
   },
   highlightOneLine: {
-    top: 7 + (14 * 1.2) / 2,
+    top: 3 + (14 * 1.2) / 2,
   },
   transcriptContainer: {
     marginTop: 10,

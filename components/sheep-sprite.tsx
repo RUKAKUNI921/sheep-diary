@@ -1,7 +1,5 @@
-import MaskedView from "@react-native-masked-view/masked-view";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
-import { PAPER_TEXTURE_SOURCE, TEXTURE_BLEND_MODE } from "../lib/texture-assets";
 import { BODY_TINTED_SHEETS, HORN_TINTED_SHEETS } from "./tinted-character-sheets";
 
 const FRAME_SIZE = 256;
@@ -30,10 +28,6 @@ export type EyeVariant = (typeof EYE_VARIANTS)[number];
 export type SheepAnimationState = "idle" | "walk";
 
 const STATES: SheepAnimationState[] = ["idle", "walk"];
-
-// Texture mask images: shadow, leg, body, arm, horn, head, eye (one frame
-// each, not doubled for idle/walk), plus the texture image itself.
-const TEXTURE_IMAGE_COUNT = 8;
 
 function sameForBoth(source: ImageSourcePropType): Record<SheepAnimationState, ImageSourcePropType> {
   return { idle: source, walk: source };
@@ -207,12 +201,6 @@ type SheepSpriteProps = {
   // sync that hiding protects against (arms/head popping in before legs)
   // doesn't matter for a single decorative still image.
   hideUntilReady?: boolean;
-  // Adds the paper-texture overlay, masked to the sprite's silhouette, via a
-  // per-sheep MaskedView. Fine for a single preview sprite (character
-  // preview modal, diary detail modal); the home screen instead paints one
-  // screen-wide texture layer on top of everything (see app/index.tsx)
-  // rather than paying for a MaskedView composite per roaming sheep.
-  textured?: boolean;
 };
 
 export function SheepSprite({
@@ -229,7 +217,6 @@ export function SheepSprite({
   animated = true,
   onReady,
   hideUntilReady = true,
-  textured = false,
 }: SheepSpriteProps) {
   const [randomHornVariant] = useState(
     () => 1 + Math.floor(Math.random() * HORN_VARIANT_COUNT),
@@ -267,8 +254,7 @@ export function SheepSprite({
     layerImageCount(ARM_SHEETS) +
     hornImageCount +
     layerImageCount(HEAD_SHEETS) +
-    layerImageCount(EYE_SHEETS[eye]) +
-    (textured ? TEXTURE_IMAGE_COUNT : 0);
+    layerImageCount(EYE_SHEETS[eye]);
   const ready = loadedCount >= totalLayerImages;
   const handleImageLoad = () => setLoadedCount((count) => count + 1);
 
@@ -372,38 +358,6 @@ export function SheepSprite({
 
   const opacity = !hideUntilReady || ready ? 1 : 0;
 
-  // Silhouette of the sprite's currently visible frame, used as an alpha
-  // mask so the texture overlay only shows up on the sheep itself instead
-  // of leaking into the transparent margins around it.
-  const renderMaskLayer = (layerKey: string, sheets: Record<SheepAnimationState, ImageSourcePropType>) => (
-    <Animated.Image
-      key={layerKey}
-      source={sheets[displayState]}
-      onLoad={handleImageLoad}
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: FRAME_SIZE * FRAME_COUNT * scale,
-        height: size,
-        transform: [{ translateX: frameTranslateX }],
-      }}
-      resizeMode="stretch"
-    />
-  );
-
-  const maskElement = textured ? (
-    <View style={{ width: size, height: size }}>
-      <Image source={SHADOW_SOURCE} onLoad={handleImageLoad} style={{ width: size, height: size }} resizeMode="stretch" />
-      {renderMaskLayer("mask-leg", LEG_SHEETS)}
-      {renderMaskLayer("mask-body", bodySheets)}
-      {renderMaskLayer("mask-arm", ARM_SHEETS)}
-      {rareHorn ? renderMaskLayer("mask-horn", RARE_HORN_SHEETS[rareHorn]) : renderMaskLayer("mask-horn", hornSheets)}
-      {renderMaskLayer("mask-head", HEAD_SHEETS)}
-      {renderMaskLayer("mask-eye", EYE_SHEETS[eye])}
-    </View>
-  ) : null;
-
   return (
     <View style={[styles.viewport, { width: size, height: size, opacity }]}>
       {/* Rendered back-to-front: shadow, leg, body, arm, horn, head, eye. */}
@@ -445,19 +399,6 @@ export function SheepSprite({
       )}
       {renderFrames("head", HEAD_SHEETS)}
       {renderFrames("eye", EYE_SHEETS[eye])}
-      {textured && (
-        <MaskedView
-          style={[styles.sheet, styles.texture, { width: size, height: size }]}
-          maskElement={maskElement!}
-        >
-          <Image
-            source={PAPER_TEXTURE_SOURCE}
-            onLoad={handleImageLoad}
-            resizeMode="repeat"
-            style={{ width: size, height: size }}
-          />
-        </MaskedView>
-      )}
     </View>
   );
 }
@@ -471,9 +412,6 @@ const styles = StyleSheet.create({
   },
   multiply: {
     mixBlendMode: "multiply",
-  },
-  texture: {
-    mixBlendMode: TEXTURE_BLEND_MODE,
   },
   sheet: {
     position: "absolute",
