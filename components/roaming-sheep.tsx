@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { estimateWebLineCount } from "../lib/text-measure";
 import { FUKIDASHI_SOURCE } from "../lib/ui-assets";
 import { BodyLevel, BodySize, EyeVariant, RareHornKey, SheepSprite, WALK_CYCLE_MS } from "./sheep-sprite";
 
@@ -23,6 +24,12 @@ const BUBBLE_HIDDEN_MIN_MS = 4000;
 const BUBBLE_HIDDEN_MAX_MS = 12000;
 const BUBBLE_VISIBLE_MIN_MS = 2500;
 const BUBBLE_VISIBLE_MAX_MS = 4500;
+
+// Shared between the bubble text's style and the web line-count estimate
+// below, so the two can't drift out of sync.
+const BUBBLE_TEXT_WIDTH = 113;
+const BUBBLE_TEXT_FONT_SIZE = 14;
+const BUBBLE_TEXT_FONT_FAMILY = "SetoFont";
 
 // Movement is constrained to the two isometric grid directions (slope
 // ±0.5, matching the background grid in isometric-background.tsx).
@@ -123,6 +130,20 @@ export function RoamingSheep({
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [bubbleLineCount, setBubbleLineCount] = useState(1);
   const walkStartResolver = useRef<(() => void) | null>(null);
+
+  // On native, onTextLayout (below) reports the real line count. On web
+  // it never fires at all — react-native-web doesn't implement it — so
+  // there we estimate the wrapped line count ourselves instead.
+  useEffect(() => {
+    if (Platform.OS !== "web" || !highlightQuote) return;
+    const estimated = estimateWebLineCount(
+      highlightQuote,
+      BUBBLE_TEXT_WIDTH,
+      BUBBLE_TEXT_FONT_SIZE,
+      BUBBLE_TEXT_FONT_FAMILY,
+    );
+    if (estimated != null) setBubbleLineCount(estimated);
+  }, [highlightQuote]);
 
   // Tracks position.y continuously so stacking order stays correct
   // throughout a walk (snapshotting it only at walk-start/end looked wrong
@@ -295,10 +316,10 @@ const styles = StyleSheet.create({
   bubbleText: {
     position: "absolute",
     left: 33.5,
-    width: 113,
-    fontFamily: "SetoFont",
-    fontSize: 14,
-    lineHeight: 14 * 1.2,
+    width: BUBBLE_TEXT_WIDTH,
+    fontFamily: BUBBLE_TEXT_FONT_FAMILY,
+    fontSize: BUBBLE_TEXT_FONT_SIZE,
+    lineHeight: BUBBLE_TEXT_FONT_SIZE * 1.2,
     color: "#000",
   },
   // 2行分の高さを前提にバブル内で縦中央になるよう調整済みの位置。1行の

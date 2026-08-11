@@ -9,12 +9,26 @@ export const SKY_COLOR = "#f4f9f4";
 const LINE_COLOR = "#92DECE";
 const LINE_WIDTH = 1;
 
-export function IsometricBackground() {
+type IsometricBackgroundProps = {
+  width: number;
+  height: number;
+};
+
+export function IsometricBackground({ width, height }: IsometricBackgroundProps) {
   const tileWidth = ISO_TILE_SIZE * 2;
   const tileHeight = ISO_TILE_SIZE;
 
   return (
-    <Svg style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
+    // react-native-svg's web renderer needs numeric width/height on the
+    // <Svg> itself — without them the underlying <svg> element falls back
+    // to the browser's intrinsic 300x150 default, so a "100%" Rect (and
+    // StyleSheet.absoluteFill) only ever fill that small top-left box
+    // instead of the whole world.
+    <Svg
+      width={width}
+      height={height}
+      style={[styles.background, { pointerEvents: "none" }]}
+    >
       <Defs>
         <Pattern id="iso-grid" patternUnits="userSpaceOnUse" width={tileWidth} height={tileHeight}>
           <Path
@@ -25,8 +39,16 @@ export function IsometricBackground() {
           />
         </Pattern>
       </Defs>
-      <Rect width="100%" height="100%" fill={SKY_COLOR} />
-      <Rect width="100%" height="100%" fill="url(#iso-grid)" />
+      <Rect width={width} height={height} fill={SKY_COLOR} />
+      <Rect width={width} height={height} fill="url(#iso-grid)" />
     </Svg>
   );
 }
+
+const styles = StyleSheet.create({
+  background: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+  },
+});

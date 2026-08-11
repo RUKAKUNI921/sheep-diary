@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 import { BODY_TINTED_SHEETS, HORN_TINTED_SHEETS } from "./tinted-character-sheets";
 
@@ -256,7 +256,11 @@ export function SheepSprite({
     layerImageCount(HEAD_SHEETS) +
     layerImageCount(EYE_SHEETS[eye]);
   const ready = loadedCount >= totalLayerImages;
-  const handleImageLoad = () => setLoadedCount((count) => count + 1);
+  // Stable identity is required here: react-native-web's Image puts onLoad
+  // directly in its image-loading effect's dependency array, so a new
+  // function every render re-triggers that effect — which calls onLoad
+  // again once the (now-cached) image "loads" again, forever.
+  const handleImageLoad = useCallback(() => setLoadedCount((count) => count + 1), []);
 
   useEffect(() => {
     if (ready) onReadyRef.current?.();

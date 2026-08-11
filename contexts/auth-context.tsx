@@ -17,8 +17,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    supabase.auth.getSession().then(async ({ data }) => {
+      let currentSession = data.session;
+
+      // Test convenience: always skip the login screen by auto-signing in
+      // as the admin test account when there's no existing session.
+      if (!currentSession) {
+        const { data: signInData } = await supabase.auth.signInWithPassword({
+          email: "admin@admin.com",
+          password: "admin",
+        });
+        currentSession = signInData.session;
+      }
+
+      setSession(currentSession);
       setIsLoading(false);
     });
 

@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SHEEP_ASSET_SOURCES } from "../components/sheep-sprite";
+import { WebPhoneFrame } from "../components/web-phone-frame";
 import { AuthProvider } from "../contexts/auth-context";
 import { DiariesProvider } from "../contexts/diaries-context";
 import { EMOTION_ICON_ASSET_SOURCES } from "../lib/emotion-icons";
@@ -13,7 +14,19 @@ import { UI_ASSET_SOURCES } from "../lib/ui-assets";
 
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+// WebPhoneFrame decides, on web, whether to mount RootLayout at all — on a
+// wide desktop browser it renders a phone-sized iframe instead, so nothing
+// here should run (font/asset loading, gesture handler setup, etc.) until
+// that decision is made.
+export default function Root() {
+  return (
+    <WebPhoneFrame>
+      <RootLayout />
+    </WebPhoneFrame>
+  );
+}
+
+function RootLayout() {
   const [assetsReady, setAssetsReady] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     SetoFont: require("../assets/fonts/setofont.ttf"),

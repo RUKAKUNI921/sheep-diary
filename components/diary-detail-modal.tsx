@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Image, ImageBackground, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { EMOTION_ICON_SOURCES, emotionIconForEmotion } from "../lib/emotion-icons";
 import { diaryToSheepAppearance } from "../lib/sheep-mapping";
+import { estimateWebLineCount } from "../lib/text-measure";
 import { CLOSE_BUTTON_SOURCE, FUKIDASHI_SOURCE, MODAL_BACKGROUND_SOURCE, NAV_BUTTON_SOURCE } from "../lib/ui-assets";
 import { VoiceDiary } from "../lib/voice-diary-api";
 import { EmotionBadge } from "./emotion-badge";
@@ -13,6 +14,12 @@ const NAV_BUTTON_WIDTH = 40;
 const NAV_BUTTON_ASPECT_RATIO = 168 / 172;
 const NAV_BUTTON_HEIGHT = NAV_BUTTON_WIDTH / NAV_BUTTON_ASPECT_RATIO;
 const NAV_BUTTON_EDGE_OFFSET = 20;
+
+// Shared between the highlight text's style and the web line-count
+// estimate below, so the two can't drift out of sync.
+const HIGHLIGHT_TEXT_WIDTH = 113;
+const HIGHLIGHT_TEXT_FONT_SIZE = 14;
+const HIGHLIGHT_TEXT_FONT_FAMILY = "SetoFont";
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -39,6 +46,20 @@ export function DiaryDetailModal({ diary, onClose, eye, onPrev, onNext }: DiaryD
     if (diary) setDisplayedDiary(diary);
   }, [diary]);
   const [highlightLineCount, setHighlightLineCount] = useState(1);
+
+  // On native, onTextLayout (below) reports the real line count. On web it
+  // never fires at all — react-native-web doesn't implement it — so there
+  // we estimate the wrapped line count ourselves instead.
+  useEffect(() => {
+    if (Platform.OS !== "web" || !displayedDiary?.highlight_quote) return;
+    const estimated = estimateWebLineCount(
+      displayedDiary.highlight_quote,
+      HIGHLIGHT_TEXT_WIDTH,
+      HIGHLIGHT_TEXT_FONT_SIZE,
+      HIGHLIGHT_TEXT_FONT_FAMILY,
+    );
+    if (estimated != null) setHighlightLineCount(estimated);
+  }, [displayedDiary?.highlight_quote]);
 
   return (
     <Modal visible={!!diary} animationType="fade" transparent onRequestClose={onClose}>
@@ -118,7 +139,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: 305,
-    height: 430,
+    height: 540,
   },
   closeButton: {
     position: "absolute",
@@ -183,24 +204,24 @@ const styles = StyleSheet.create({
   highlight: {
     position: "absolute",
     left: 7.5,
-    fontFamily: "SetoFont",
-    fontSize: 14,
-    lineHeight: 14 * 1.2,
+    fontFamily: HIGHLIGHT_TEXT_FONT_FAMILY,
+    fontSize: HIGHLIGHT_TEXT_FONT_SIZE,
+    lineHeight: HIGHLIGHT_TEXT_FONT_SIZE * 1.2,
     color: "#000",
-    width: 113,
+    width: HIGHLIGHT_TEXT_WIDTH,
   },
   // 2行分の高さを前提にバブル内で縦中央になるよう調整済みの位置。1行の
   // ときはその半分だけ下にずらして、同じ基準で中央に来るようにする。
   highlightTwoLines: {
-    top: 3,
+    top: 7,
   },
   highlightOneLine: {
-    top: 3 + (14 * 1.2) / 2,
+    top: 7 + (HIGHLIGHT_TEXT_FONT_SIZE * 1.2) / 2,
   },
   transcriptContainer: {
     marginTop: 10,
     width: 200,
-    height: 100,
+    height: 210,
     alignSelf: "center",
   },
   transcript: {

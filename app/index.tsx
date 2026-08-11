@@ -247,7 +247,7 @@ export default function Index() {
     <View style={styles.container}>
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[styles.world, worldStyle]}>
-          <IsometricBackground />
+          <IsometricBackground width={WORLD_WIDTH} height={WORLD_HEIGHT} />
           <GrassField width={WORLD_WIDTH} height={WORLD_HEIGHT} />
           <View style={styles.sheepArea}>
             {diarySheep.map(({ id, bodyLevel, bodySize, bodyColor, hornColor, hornVariant, rareHorn, diaryId }) => (
