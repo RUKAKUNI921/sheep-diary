@@ -9,14 +9,10 @@ import {
   CONFIRM_BUTTON_SOURCE,
   FACE_BUTTON_DOWN_SOURCE,
   FACE_BUTTON_SOURCE,
-  KIYAKU_BUTTON_DOWN_SOURCE,
-  KIYAKU_BUTTON_SOURCE,
   LOGIN_BUTTON_DOWN_SOURCE,
   LOGIN_BUTTON_SOURCE,
   LOGOUT_BUTTON_DOWN_SOURCE,
   LOGOUT_BUTTON_SOURCE,
-  NAME_BUTTON_DOWN_SOURCE,
-  NAME_BUTTON_SOURCE,
   NAV_BUTTON_SOURCE,
   OPTION_MODAL_SOURCE,
 } from "../lib/ui-assets";
@@ -28,12 +24,12 @@ const CLOSE_BUTTON_RIGHT = 10;
 const CLOSE_BUTTON_SIZE = 60;
 
 const MODAL_WIDTH = 267;
-const MODAL_HEIGHT = 434;
+const MODAL_HEIGHT = 302;
 const MODAL_PADDING_VERTICAL = 40;
 
 const BUTTON_WIDTH = 167;
 const BUTTON_HEIGHT = 59;
-const BUTTON_GAP = 20;
+const BUTTON_GAP = 24;
 
 // ボタン画像の実寸(513x189 / 押下時513x171)。幅はBUTTON_WIDTHに固定し、
 // 高さは比率を変えずに実寸から算出して枠の下端に揃えて表示する。
@@ -113,8 +109,6 @@ type OptionsModalProps = {
   isLoggedIn: boolean;
   eye: EyeVariant;
   onConfirmFace: (eye: EyeVariant) => void;
-  onChangeName?: () => void;
-  onPressTerms?: () => void;
   onLogin?: () => void;
   onLogout?: () => void;
 };
@@ -125,8 +119,6 @@ export function OptionsModal({
   isLoggedIn,
   eye,
   onConfirmFace,
-  onChangeName,
-  onPressTerms,
   onLogin,
   onLogout,
 }: OptionsModalProps) {
@@ -161,16 +153,10 @@ export function OptionsModal({
               <Text style={styles.title}>オプション</Text>
 
               <View style={styles.buttonsColumn}>
-                <MenuButton source={NAME_BUTTON_SOURCE} downSource={NAME_BUTTON_DOWN_SOURCE} onPress={onChangeName} />
                 <MenuButton
                   source={FACE_BUTTON_SOURCE}
                   downSource={FACE_BUTTON_DOWN_SOURCE}
                   onPress={() => setScreen("face")}
-                />
-                <MenuButton
-                  source={KIYAKU_BUTTON_SOURCE}
-                  downSource={KIYAKU_BUTTON_DOWN_SOURCE}
-                  onPress={onPressTerms}
                 />
                 <MenuButton
                   source={isLoggedIn ? LOGOUT_BUTTON_SOURCE : LOGIN_BUTTON_SOURCE}
@@ -241,7 +227,8 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: MODAL_PADDING_VERTICAL,
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    gap: 30,
   },
   faceContent: {
     flex: 1,

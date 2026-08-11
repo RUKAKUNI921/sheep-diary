@@ -1,9 +1,20 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  Animated,
+  Easing,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { BodyLevel, BodySize, RareHornKey, SheepSprite, SheepAnimationState } from "../../components/sheep-sprite";
 import { useAuth } from "../../contexts/auth-context";
 import { eyeVariantFromMetadata } from "../../lib/eye-preference";
+import { estimateWebLineCount } from "../../lib/text-measure";
 import { BACK_HOME_BUTTON_DOWN_SOURCE, BACK_HOME_BUTTON_SOURCE, FUKIDASHI_SOURCE } from "../../lib/ui-assets";
 
 const HOME_BUTTON_WIDTH = 167;
@@ -11,6 +22,10 @@ const HOME_BUTTON_WIDTH = 167;
 // 比率を変えずに実寸から算出して枠の下端に揃えて表示する。
 const HOME_BUTTON_HEIGHT = Math.round((HOME_BUTTON_WIDTH * 189) / 513);
 const HOME_BUTTON_DOWN_HEIGHT = Math.round((HOME_BUTTON_WIDTH * 171) / 513);
+
+const HIGHLIGHT_TEXT_WIDTH = 136;
+const HIGHLIGHT_TEXT_FONT_SIZE = 17;
+const HIGHLIGHT_TEXT_FONT_FAMILY = "SetoFont";
 
 const PREVIEW_SIZE = 320;
 const PREVIEW_SCALE = PREVIEW_SIZE / 256;
@@ -65,6 +80,20 @@ export default function CharacterConfirmScreen() {
       }).start();
     });
   }, [screenWidth, translateX, buttonOpacity, bubbleOpacity]);
+
+  // On native, onTextLayout (below) reports the real line count. On web
+  // it never fires at all — react-native-web doesn't implement it — so
+  // there we estimate the wrapped line count ourselves instead.
+  useEffect(() => {
+    if (Platform.OS !== "web" || !highlightQuote) return;
+    const estimated = estimateWebLineCount(
+      highlightQuote,
+      HIGHLIGHT_TEXT_WIDTH,
+      HIGHLIGHT_TEXT_FONT_SIZE,
+      HIGHLIGHT_TEXT_FONT_FAMILY,
+    );
+    if (estimated != null) setHighlightLineCount(estimated);
+  }, [highlightQuote]);
 
   return (
     <View style={styles.container}>
@@ -144,20 +173,20 @@ const styles = StyleSheet.create({
   highlight: {
     position: "absolute",
     left: 8,
-    fontFamily: "SetoFont",
-    fontSize: 17,
-    lineHeight: 17 * 1.2,
+    fontFamily: HIGHLIGHT_TEXT_FONT_FAMILY,
+    fontSize: HIGHLIGHT_TEXT_FONT_SIZE,
+    lineHeight: HIGHLIGHT_TEXT_FONT_SIZE * 1.2,
     color: "#000",
-    width: 136,
+    width: HIGHLIGHT_TEXT_WIDTH,
     // textAlign: "center",
   },
   // 2行分の高さを前提にバブル内で縦中央になるよう調整済みの位置。1行の
   // ときはその半分だけ下にずらして、同じ基準で中央に来るようにする。
   highlightTwoLines: {
-    top: 8,
+    top: 10,
   },
   highlightOneLine: {
-    top: 8 + (17 * 1.2) / 2,
+    top: 10 + (HIGHLIGHT_TEXT_FONT_SIZE * 1.2) / 2,
   },
   homeButtonSlot: {
     width: HOME_BUTTON_WIDTH,

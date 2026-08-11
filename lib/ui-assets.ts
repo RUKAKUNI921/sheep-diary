@@ -7,6 +7,8 @@ export const SORT_FUKIDASHI_SOURCE = require("../assets/ui/sort-fukidashi.png");
 export const CALENDAR_BUTTON_SOURCE = require("../assets/ui/calender.png");
 export const MIC_BUTTON_SOURCE = require("../assets/ui/mic-icon.png");
 export const MIC_BUTTON_RECORDING_SOURCE = require("../assets/ui/mic-icon-recording.png");
+export const RECORD_NOW_SIGN_SOURCE = require("../assets/ui/record_now.png");
+export const DOG_ESCORT_SOURCE = require("../assets/ui/dog_all.png");
 export const MENU_BUTTON_SOURCE = require("../assets/ui/menu-btn.png");
 export const NAV_BUTTON_SOURCE = require("../assets/ui/nav-allow.png");
 export const OPTION_MODAL_SOURCE = require("../assets/ui/option-modal.png");
@@ -26,6 +28,9 @@ export const CONFIRM_BUTTON_SOURCE = require("../assets/ui/confirm-btn.png");
 export const CONFIRM_BUTTON_DOWN_SOURCE = require("../assets/ui/confirm-btn-down.png");
 export const BACK_HOME_BUTTON_SOURCE = require("../assets/ui/back-home-btn.png");
 export const BACK_HOME_BUTTON_DOWN_SOURCE = require("../assets/ui/back-home-btn-down.png");
+export const CONFIRM_MODAL_SOURCE = require("../assets/ui/confirm-modal.png");
+export const SHEEP_CALL_BUTTON_SOURCE = require("../assets/ui/sheep-call-btn.png");
+export const SHEEP_CALL_BUTTON_DOWN_SOURCE = require("../assets/ui/sheep-call-btn-down.png");
 export const LOADING_LOGO_SOURCE = require("../assets/logo/wataboku.png");
 
 // Every UI image loaded via require() outside of SheepSprite, for
@@ -40,6 +45,8 @@ export const UI_ASSET_SOURCES: number[] = [
   CALENDAR_BUTTON_SOURCE,
   MIC_BUTTON_SOURCE,
   MIC_BUTTON_RECORDING_SOURCE,
+  RECORD_NOW_SIGN_SOURCE,
+  DOG_ESCORT_SOURCE,
   MENU_BUTTON_SOURCE,
   NAV_BUTTON_SOURCE,
   OPTION_MODAL_SOURCE,
@@ -59,5 +66,8 @@ export const UI_ASSET_SOURCES: number[] = [
   CONFIRM_BUTTON_DOWN_SOURCE,
   BACK_HOME_BUTTON_SOURCE,
   BACK_HOME_BUTTON_DOWN_SOURCE,
+  CONFIRM_MODAL_SOURCE,
+  SHEEP_CALL_BUTTON_SOURCE,
+  SHEEP_CALL_BUTTON_DOWN_SOURCE,
   LOADING_LOGO_SOURCE,
 ];
