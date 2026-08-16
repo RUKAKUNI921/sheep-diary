@@ -9,6 +9,10 @@ import {
   CONFIRM_BUTTON_SOURCE,
   FACE_BUTTON_DOWN_SOURCE,
   FACE_BUTTON_SOURCE,
+  FACE_OPTION_MODAL_SOURCE,
+  HOW_TO_USE_BUTTON_DOWN_SOURCE,
+  HOW_TO_USE_BUTTON_SOURCE,
+  HOW_TO_USE_MODAL_SOURCE,
   LOGIN_BUTTON_DOWN_SOURCE,
   LOGIN_BUTTON_SOURCE,
   LOGOUT_BUTTON_DOWN_SOURCE,
@@ -24,8 +28,14 @@ const CLOSE_BUTTON_RIGHT = 10;
 const CLOSE_BUTTON_SIZE = 60;
 
 const MODAL_WIDTH = 267;
-const MODAL_HEIGHT = 302;
+const MODAL_HEIGHT = 381;
 const MODAL_PADDING_VERTICAL = 40;
+
+const FACE_MODAL_WIDTH = 267;
+const FACE_MODAL_HEIGHT = 434;
+
+const HOW_TO_USE_MODAL_WIDTH = 267;
+const HOW_TO_USE_MODAL_HEIGHT = 391;
 
 const BUTTON_WIDTH = 167;
 const BUTTON_HEIGHT = 59;
@@ -101,7 +111,7 @@ function ActionButton({ source, downSource, onPress }: ActionButtonProps) {
   );
 }
 
-type Screen = "options" | "face";
+type Screen = "options" | "face" | "how-to-use";
 
 type OptionsModalProps = {
   visible: boolean;
@@ -159,6 +169,11 @@ export function OptionsModal({
                   onPress={() => setScreen("face")}
                 />
                 <MenuButton
+                  source={HOW_TO_USE_BUTTON_SOURCE}
+                  downSource={HOW_TO_USE_BUTTON_DOWN_SOURCE}
+                  onPress={() => setScreen("how-to-use")}
+                />
+                <MenuButton
                   source={isLoggedIn ? LOGOUT_BUTTON_SOURCE : LOGIN_BUTTON_SOURCE}
                   downSource={isLoggedIn ? LOGOUT_BUTTON_DOWN_SOURCE : LOGIN_BUTTON_DOWN_SOURCE}
                   onPress={isLoggedIn ? onLogout : onLogin}
@@ -166,8 +181,8 @@ export function OptionsModal({
               </View>
             </View>
           </ImageBackground>
-        ) : (
-          <ImageBackground source={OPTION_MODAL_SOURCE} style={styles.modalBox} resizeMode="stretch">
+        ) : screen === "face" ? (
+          <ImageBackground source={FACE_OPTION_MODAL_SOURCE} style={styles.faceModalBox} resizeMode="stretch">
             <View style={styles.faceContent}>
               <Text style={styles.title}>かおを変更</Text>
 
@@ -202,6 +217,8 @@ export function OptionsModal({
               </View>
             </View>
           </ImageBackground>
+        ) : (
+          <ImageBackground source={HOW_TO_USE_MODAL_SOURCE} style={styles.howToUseModalBox} resizeMode="stretch" />
         )}
 
         <Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
@@ -222,6 +239,14 @@ const styles = StyleSheet.create({
   modalBox: {
     width: MODAL_WIDTH,
     height: MODAL_HEIGHT,
+  },
+  faceModalBox: {
+    width: FACE_MODAL_WIDTH,
+    height: FACE_MODAL_HEIGHT,
+  },
+  howToUseModalBox: {
+    width: HOW_TO_USE_MODAL_WIDTH,
+    height: HOW_TO_USE_MODAL_HEIGHT,
   },
   optionsContent: {
     flex: 1,

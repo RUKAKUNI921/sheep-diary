@@ -127,7 +127,7 @@ export default function CharacterConfirmScreen() {
       </View>
 
       <Animated.View style={{ opacity: buttonOpacity }} pointerEvents={arrived ? "auto" : "none"}>
-        <Pressable onPress={() => router.replace("/")}>
+        <Pressable onPress={() => router.dismissTo("/")}>
           {({ pressed }) => (
             <View style={styles.homeButtonSlot}>
               <Image

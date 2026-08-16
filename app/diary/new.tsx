@@ -63,7 +63,7 @@ type Phase = "idle" | "recording" | "analyzing" | "confirm" | "saving";
 
 // UI遷移の確認用に実際のAI解析とDB保存をスキップするフラグ。
 // 確認が終わったら false に戻すこと。
-const SKIP_AI_ANALYSIS = false;
+const SKIP_AI_ANALYSIS = true;
 const MOCK_ANALYSIS_DELAY_MS = 1200;
 
 // 解析中に表示する犬の顔を切り替える間隔。ここを変えるだけで調整できる。
@@ -243,7 +243,7 @@ export default function NewDiaryScreen() {
             <Pressable onPress={startRecording}>
               <Image source={MIC_BUTTON_SOURCE} style={styles.micImage} resizeMode="contain" />
             </Pressable>
-            <Text style={styles.iconLabel}>すたーと</Text>
+            <Text style={styles.iconLabel}>録音すたーと</Text>
           </View>
         )}
 
@@ -271,7 +271,7 @@ export default function NewDiaryScreen() {
               <Pressable onPress={stopRecording}>
                 <Image source={MIC_BUTTON_RECORDING_SOURCE} style={styles.micImage} resizeMode="contain" />
               </Pressable>
-              <Text style={styles.iconLabel}>すとっぷ</Text>
+              <Text style={styles.iconLabel}>録音すとっぷ</Text>
             </View>
           </>
         )}

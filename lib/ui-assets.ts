@@ -12,10 +12,14 @@ export const DOG_ESCORT_SOURCE = require("../assets/ui/dog_all.png");
 export const MENU_BUTTON_SOURCE = require("../assets/ui/menu-btn.png");
 export const NAV_BUTTON_SOURCE = require("../assets/ui/nav-allow.png");
 export const OPTION_MODAL_SOURCE = require("../assets/ui/option-modal.png");
+export const FACE_OPTION_MODAL_SOURCE = require("../assets/ui/face-option-modal.png");
+export const HOW_TO_USE_MODAL_SOURCE = require("../assets/ui/how-to-use-modal.png");
 export const NAME_BUTTON_SOURCE = require("../assets/ui/name-btn.png");
 export const NAME_BUTTON_DOWN_SOURCE = require("../assets/ui/name-btn-down.png");
 export const FACE_BUTTON_SOURCE = require("../assets/ui/face-btn.png");
 export const FACE_BUTTON_DOWN_SOURCE = require("../assets/ui/face-btn-down.png");
+export const HOW_TO_USE_BUTTON_SOURCE = require("../assets/ui/how-to-use-btn.png");
+export const HOW_TO_USE_BUTTON_DOWN_SOURCE = require("../assets/ui/how-to-use-btn-down.png");
 export const KIYAKU_BUTTON_SOURCE = require("../assets/ui/kiyaku-btn.png");
 export const KIYAKU_BUTTON_DOWN_SOURCE = require("../assets/ui/kiyaku-btn-down.png");
 export const LOGIN_BUTTON_SOURCE = require("../assets/ui/logIn-btn.png");
@@ -50,10 +54,14 @@ export const UI_ASSET_SOURCES: number[] = [
   MENU_BUTTON_SOURCE,
   NAV_BUTTON_SOURCE,
   OPTION_MODAL_SOURCE,
+  FACE_OPTION_MODAL_SOURCE,
+  HOW_TO_USE_MODAL_SOURCE,
   NAME_BUTTON_SOURCE,
   NAME_BUTTON_DOWN_SOURCE,
   FACE_BUTTON_SOURCE,
   FACE_BUTTON_DOWN_SOURCE,
+  HOW_TO_USE_BUTTON_SOURCE,
+  HOW_TO_USE_BUTTON_DOWN_SOURCE,
   KIYAKU_BUTTON_SOURCE,
   KIYAKU_BUTTON_DOWN_SOURCE,
   LOGIN_BUTTON_SOURCE,

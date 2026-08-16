@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { StyleSheet } from "react-native";
 import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 
@@ -17,6 +18,10 @@ type IsometricBackgroundProps = {
 export function IsometricBackground({ width, height }: IsometricBackgroundProps) {
   const tileWidth = ISO_TILE_SIZE * 2;
   const tileHeight = ISO_TILE_SIZE;
+  // SVGのidはドキュメント全体で一意である必要がある。固定文字列だと、この
+  // コンポーネントが同時に複数マウントされたとき(画面の多重マウントなど)
+  // に url(#id)参照が壊れて格子線が消えてしまう。
+  const patternId = `iso-grid-${useId()}`;
 
   return (
     // react-native-svg's web renderer needs numeric width/height on the
@@ -30,7 +35,7 @@ export function IsometricBackground({ width, height }: IsometricBackgroundProps)
       style={[styles.background, { pointerEvents: "none" }]}
     >
       <Defs>
-        <Pattern id="iso-grid" patternUnits="userSpaceOnUse" width={tileWidth} height={tileHeight}>
+        <Pattern id={patternId} patternUnits="userSpaceOnUse" width={tileWidth} height={tileHeight}>
           <Path
             d={`M0,${tileHeight / 2} L${tileWidth / 2},0 L${tileWidth},${tileHeight / 2} L${tileWidth / 2},${tileHeight} Z`}
             stroke={LINE_COLOR}
@@ -40,7 +45,7 @@ export function IsometricBackground({ width, height }: IsometricBackgroundProps)
         </Pattern>
       </Defs>
       <Rect width={width} height={height} fill={SKY_COLOR} />
-      <Rect width={width} height={height} fill="url(#iso-grid)" />
+      <Rect width={width} height={height} fill={`url(#${patternId})`} />
     </Svg>
   );
 }
