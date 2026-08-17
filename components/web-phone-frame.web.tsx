@@ -59,11 +59,7 @@ export function WebPhoneFrame({ children }: PropsWithChildren) {
           <br />
           スマートフォンからもお試しいただけます
         </p>
-        <Image
-          source={QR_CODE_SOURCE}
-          resizeMode="contain"
-          style={{ width: 100, height: 100, marginTop: 40 }}
-        />
+        <Image source={QR_CODE_SOURCE} resizeMode="contain" style={{ width: 100, height: 100, marginTop: 40 }} />
       </div>
 
       <div style={styles.frame}>
@@ -80,9 +76,9 @@ export function WebPhoneFrame({ children }: PropsWithChildren) {
           Web版では体験しやすいよう、1日に複数回記録できます。
         </p>
         <p style={{ ...styles.rightText, marginTop: 50 }}>
-          複数の羊を記録した場合、カレンダーには最新の羊が表示され、
+          複数の羊を記録した場合、すべての羊は牧場に放牧され、
           <br />
-          すべての羊は牧場に放牧されます。
+          カレンダーには最新の羊が表示されます。
         </p>
         <p style={{ ...styles.rightNote, marginTop: 50 }}>
           ※注意
