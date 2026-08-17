@@ -63,7 +63,7 @@ type Phase = "idle" | "recording" | "analyzing" | "confirm" | "saving";
 
 // UI遷移の確認用に実際のAI解析とDB保存をスキップするフラグ。
 // 確認が終わったら false に戻すこと。
-const SKIP_AI_ANALYSIS = true;
+const SKIP_AI_ANALYSIS = false;
 const MOCK_ANALYSIS_DELAY_MS = 1200;
 
 // 解析中に表示する犬の顔を切り替える間隔。ここを変えるだけで調整できる。
@@ -286,12 +286,7 @@ export default function NewDiaryScreen() {
         {phase === "confirm" && (
           <View style={styles.confirmContainer}>
             <View style={styles.confirmModal}>
-              <Image
-                source={CONFIRM_MODAL_SOURCE}
-                style={styles.confirmModalImage}
-                resizeMode="cover"
-                pointerEvents="none"
-              />
+              <Image source={CONFIRM_MODAL_SOURCE} style={styles.confirmModalImage} resizeMode="cover" />
               <View style={styles.confirmModalContent}>
                 <Text style={styles.confirmModalTitle}>確認してね</Text>
                 <TextInput

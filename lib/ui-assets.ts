@@ -36,6 +36,7 @@ export const CONFIRM_MODAL_SOURCE = require("../assets/ui/confirm-modal.png");
 export const SHEEP_CALL_BUTTON_SOURCE = require("../assets/ui/sheep-call-btn.png");
 export const SHEEP_CALL_BUTTON_DOWN_SOURCE = require("../assets/ui/sheep-call-btn-down.png");
 export const LOADING_LOGO_SOURCE = require("../assets/logo/wataboku.png");
+export const QR_CODE_SOURCE = require("../assets/ui/qr-code-img.png");
 
 // Every UI image loaded via require() outside of SheepSprite, for
 // preloading at app startup alongside the sheep assets.
