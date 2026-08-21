@@ -56,7 +56,12 @@ function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <DiariesProvider>
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            {/* 確認画面→羊登場画面はどちらも背景色が同じで、OS標準の
+                スライド遷移だと切り替わり際に前の画面が一瞬透けて見える。
+                fadeにして新旧の画面が重ならないようにする。 */}
+            <Stack.Screen name="diary/character" options={{ animation: "fade" }} />
+          </Stack>
         </DiariesProvider>
       </AuthProvider>
     </GestureHandlerRootView>

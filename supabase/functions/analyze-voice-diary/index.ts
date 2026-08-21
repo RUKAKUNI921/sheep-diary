@@ -65,6 +65,8 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
 async function fetchWithBackoff(
   input: string,
   init: RequestInit,
@@ -73,7 +75,7 @@ async function fetchWithBackoff(
   let attempt = 0;
   for (;;) {
     const res = await fetch(input, init);
-    if (res.status !== 429 || attempt >= maxRetries) return res;
+    if (!RETRYABLE_STATUSES.has(res.status) || attempt >= maxRetries) return res;
     const delay = 2 ** attempt * 1000 + Math.floor(Math.random() * 250);
     await sleep(delay);
     attempt++;
