@@ -1,6 +1,8 @@
 import {
-  RecordingPresets,
+  AudioQuality,
+  IOSOutputFormat,
   requestRecordingPermissionsAsync,
+  RecordingOptions,
   setAudioModeAsync,
   useAudioRecorder,
   useAudioRecorderState,
@@ -42,6 +44,32 @@ import {
   retryVoiceDiaryAnalysis,
   saveVoiceDiary,
 } from "../../lib/voice-diary-api";
+
+// 音声はGeminiでの書き起こし・感情分析にしか使わないので、16kHzモノラルの
+// 低ビットレートで十分（音声認識自体はこの帯域で精度が落ちない）。
+// ファイルサイズを大きく減らし、Gemini側の処理時間を短縮する狙い。
+// 全プラットフォームで.m4a/AACに統一し、送信時のmime_typeを固定できるようにする。
+const VOICE_DIARY_RECORDING_OPTIONS: RecordingOptions = {
+  extension: ".m4a",
+  sampleRate: 16000,
+  numberOfChannels: 1,
+  bitRate: 32000,
+  android: {
+    outputFormat: "mpeg4",
+    audioEncoder: "aac",
+  },
+  ios: {
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.MEDIUM,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {
+    mimeType: "audio/webm",
+    bitsPerSecond: 32000,
+  },
+};
 
 const RECORD_SIGN_WIDTH = 177;
 const RECORD_SIGN_HEIGHT = 250;
@@ -92,7 +120,7 @@ function mockAnalyzeVoiceDiary(): Promise<AnalyzeResult> {
 
 export default function NewDiaryScreen() {
   const router = useRouter();
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(VOICE_DIARY_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
