@@ -235,23 +235,40 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "unauthorized" }, 401);
   }
 
-  let audioFile: File;
+  let jobId: string;
   try {
-    const form = await req.formData();
-    const file = form.get("audio");
-    if (!(file instanceof File)) throw new Error("missing audio field");
-    audioFile = file;
+    const body = await req.json();
+    if (typeof body.job_id !== "string") throw new Error("missing job_id");
+    jobId = body.job_id;
   } catch {
-    return jsonResponse({ error: "expected multipart/form-data with an 'audio' file field" }, 400);
+    return jsonResponse({ error: "expected JSON body with a 'job_id' field" }, 400);
   }
-
-  const bytes = await audioFile.arrayBuffer();
-  const mimeType = audioFile.type || "audio/mp4";
-  const audioHash = await sha256Hex(bytes);
 
   const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  const { data: job, error: jobError } = await serviceClient
+    .from("voice_diary_analysis_jobs")
+    .select("id, user_id, storage_path, mime_type, status")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (jobError || !job) return jsonResponse({ error: "job not found" }, 404);
+  if (job.user_id !== userData.user.id) return jsonResponse({ error: "unauthorized" }, 401);
+  if (job.status !== "pending") return jsonResponse({ status: job.status });
+
+  await serviceClient
+    .from("voice_diary_analysis_jobs")
+    .update({ status: "processing", updated_at: new Date().toISOString() })
+    .eq("id", jobId);
+
   try {
+    const { data: audioData, error: downloadError } = await serviceClient.storage
+      .from("voice-diary-audio")
+      .download(job.storage_path);
+    if (downloadError || !audioData) throw new Error(`failed to download audio: ${downloadError?.message}`);
+    const bytes = await audioData.arrayBuffer();
+    const mimeType = job.mime_type;
+    const audioHash = await sha256Hex(bytes);
+
     let analysis: GeminiAnalysis;
 
     const { data: cached } = await serviceClient
@@ -288,15 +305,27 @@ Deno.serve(async (req: Request) => {
     const transcribedText = analysis.segments.map((s) => s.text).join("");
     const scores = computeScores(analysis.segments);
 
-    return jsonResponse({
+    const result = {
       transcribed_text: transcribedText,
       emotion: analysis.overall_emotion,
       sub_emotion: analysis.sub_emotion,
       highlight_quote: highlightQuote,
       ...scores,
-    });
+    };
+
+    await serviceClient
+      .from("voice_diary_analysis_jobs")
+      .update({ status: "done", result, updated_at: new Date().toISOString() })
+      .eq("id", jobId);
+
+    return jsonResponse(result);
   } catch (err) {
     console.error(err);
-    return jsonResponse({ error: err instanceof Error ? err.message : "analysis failed" }, 502);
+    const message = err instanceof Error ? err.message : "analysis failed";
+    await serviceClient
+      .from("voice_diary_analysis_jobs")
+      .update({ status: "error", error_message: message, updated_at: new Date().toISOString() })
+      .eq("id", jobId);
+    return jsonResponse({ error: message }, 502);
   }
 });

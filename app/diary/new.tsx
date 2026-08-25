@@ -34,7 +34,14 @@ import {
   SHEEP_CALL_BUTTON_DOWN_SOURCE,
   SHEEP_CALL_BUTTON_SOURCE,
 } from "../../lib/ui-assets";
-import { AnalyzeResult, analyzeVoiceDiary, pickRandomHornVariant, saveVoiceDiary } from "../../lib/voice-diary-api";
+import {
+  AnalyzeResult,
+  VoiceDiaryAnalysisError,
+  analyzeVoiceDiary,
+  pickRandomHornVariant,
+  retryVoiceDiaryAnalysis,
+  saveVoiceDiary,
+} from "../../lib/voice-diary-api";
 
 const RECORD_SIGN_WIDTH = 177;
 const RECORD_SIGN_HEIGHT = 250;
@@ -59,7 +66,7 @@ const SHEEP_CALL_BUTTON_WIDTH = 167;
 const SHEEP_CALL_BUTTON_HEIGHT = Math.round((SHEEP_CALL_BUTTON_WIDTH * 189) / 513);
 const SHEEP_CALL_BUTTON_DOWN_HEIGHT = Math.round((SHEEP_CALL_BUTTON_WIDTH * 171) / 513);
 
-type Phase = "idle" | "recording" | "analyzing" | "confirm" | "saving";
+type Phase = "idle" | "recording" | "analyzing" | "confirm" | "saving" | "retry";
 
 // UI遷移の確認用に実際のAI解析とDB保存をスキップするフラグ。
 // 確認が終わったら false に戻すこと。
@@ -89,6 +96,7 @@ export default function NewDiaryScreen() {
   const recorderState = useAudioRecorderState(recorder);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryJobId, setRetryJobId] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalyzeResult | null>(null);
   const [transcript, setTranscript] = useState("");
   const [analyzingFrameIndex, setAnalyzingFrameIndex] = useState(0);
@@ -166,6 +174,7 @@ export default function NewDiaryScreen() {
   const stopRecording = async () => {
     await recorder.stop();
     setErrorMessage(null);
+    setRetryJobId(null);
     setPhase("analyzing");
 
     if (!recorder.uri) {
@@ -182,8 +191,38 @@ export default function NewDiaryScreen() {
       setTranscript(result.transcribed_text);
       setPhase("confirm");
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "解析に失敗しました");
-      setPhase("idle");
+      if (err instanceof VoiceDiaryAnalysisError) {
+        setRetryJobId(err.jobId);
+        setErrorMessage(null);
+        setPhase("retry");
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : "解析に失敗しました");
+        setPhase("idle");
+      }
+    }
+  };
+
+  // 音声はすでにアップロード済みなので、録り直さず同じジョブの解析だけやり直す。
+  const retryAnalysis = async () => {
+    if (!retryJobId) return;
+    setErrorMessage(null);
+    setPhase("analyzing");
+
+    try {
+      const result = await retryVoiceDiaryAnalysis(retryJobId);
+      setRetryJobId(null);
+      setAnalysisResult(result);
+      setTranscript(result.transcribed_text);
+      setPhase("confirm");
+    } catch (err) {
+      if (err instanceof VoiceDiaryAnalysisError) {
+        setRetryJobId(err.jobId);
+        setErrorMessage(null);
+        setPhase("retry");
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : "解析に失敗しました");
+        setPhase("idle");
+      }
     }
   };
 
@@ -237,6 +276,16 @@ export default function NewDiaryScreen() {
         )}
 
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
+        {phase === "retry" && (
+          <View style={styles.iconArea}>
+            <Text style={styles.retryNotice}>解析に時間がかかっています</Text>
+            <Pressable onPress={retryAnalysis}>
+              <Image source={DOG_ESCORT_SOURCE} style={styles.dogImage} resizeMode="contain" />
+            </Pressable>
+            <Text style={styles.iconLabel}>もう一度試す</Text>
+          </View>
+        )}
 
         {phase === "idle" && (
           <View style={styles.iconArea}>
@@ -322,7 +371,7 @@ export default function NewDiaryScreen() {
           </View>
         )}
 
-        {phase === "idle" && (
+        {(phase === "idle" || phase === "retry") && (
           <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={12}>
             <Image source={CLOSE_BUTTON_SOURCE} style={styles.closeButtonImage} resizeMode="contain" />
           </Pressable>
@@ -391,6 +440,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: "#000",
     marginTop: 8,
+  },
+  retryNotice: {
+    fontFamily: "SetoFont",
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 16,
   },
   error: {
     color: "#E53935",

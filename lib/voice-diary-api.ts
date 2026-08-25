@@ -1,6 +1,7 @@
-import { Platform } from "react-native";
 import { HORN_VARIANT_COUNT } from "../components/sheep-sprite";
 import { supabase } from "./supabase";
+
+const ANALYSIS_TIMEOUT_MS = 3 * 60 * 1000;
 
 export type AnalyzeResult = {
   transcribed_text: string;
@@ -24,42 +25,110 @@ export function pickRandomHornVariant(): number {
   return 1 + Math.floor(Math.random() * HORN_VARIANT_COUNT);
 }
 
+// Thrown when a job's analysis fails or times out. Carries the job id so
+// callers can retry against the already-uploaded audio instead of re-recording.
+export class VoiceDiaryAnalysisError extends Error {
+  constructor(
+    message: string,
+    public readonly jobId: string,
+  ) {
+    super(message);
+  }
+}
+
+// The edge function does the actual Gemini work and can run well past a
+// typical request timeout, so it's invoked fire-and-forget here and the
+// result is picked up via Realtime once the job row is updated — this
+// decouples the client's wait from the edge function's execution time.
+function waitForAnalysis(jobId: string, accessToken: string): Promise<AnalyzeResult> {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+
+  return new Promise<AnalyzeResult>((resolve, reject) => {
+    let settled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      supabase.removeChannel(channel);
+      reject(new VoiceDiaryAnalysisError("解析がタイムアウトしました。もう一度お試しください", jobId));
+    }, ANALYSIS_TIMEOUT_MS);
+
+    const channel = supabase
+      .channel(`voice-diary-job-${jobId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "voice_diary_analysis_jobs", filter: `id=eq.${jobId}` },
+        (payload) => {
+          if (settled) return;
+          const row = payload.new as { status: string; result: AnalyzeResult | null; error_message: string | null };
+          if (row.status === "done" && row.result) {
+            settled = true;
+            clearTimeout(timeoutId);
+            supabase.removeChannel(channel);
+            resolve(row.result);
+          } else if (row.status === "error") {
+            settled = true;
+            clearTimeout(timeoutId);
+            supabase.removeChannel(channel);
+            reject(new VoiceDiaryAnalysisError(row.error_message ?? "解析に失敗しました", jobId));
+          }
+        },
+      )
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED" || settled) return;
+        fetch(`${supabaseUrl}/functions/v1/analyze-voice-diary`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ job_id: jobId }),
+        }).catch(() => {});
+      });
+  });
+}
+
 export async function analyzeVoiceDiary(
   fileUri: string,
   mimeType: string,
 ): Promise<AnalyzeResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
+  const userId = sessionData.session?.user.id;
+  if (!accessToken || !userId) throw new Error("サインインが必要です");
+
+  // fetch().arrayBuffer() works uniformly across web (blob: URLs) and native
+  // (file:// URIs), unlike FormData which needs different shapes per platform.
+  const arrayBuffer = await (await fetch(fileUri)).arrayBuffer();
+  const extension = mimeType.split("/")[1]?.split(";")[0] || "m4a";
+  const storagePath = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("voice-diary-audio")
+    .upload(storagePath, arrayBuffer, { contentType: mimeType });
+  if (uploadError) throw new Error(`音声のアップロードに失敗しました: ${uploadError.message}`);
+
+  const { data: job, error: insertError } = await supabase
+    .from("voice_diary_analysis_jobs")
+    .insert({ user_id: userId, storage_path: storagePath, mime_type: mimeType })
+    .select("id")
+    .single();
+  if (insertError || !job) throw new Error(`解析ジョブの作成に失敗しました: ${insertError?.message}`);
+
+  return waitForAnalysis(job.id, accessToken);
+}
+
+// Re-runs analysis against audio that's already uploaded (job.storage_path),
+// so a failed/timed-out analysis can be retried without re-recording.
+export async function retryVoiceDiaryAnalysis(jobId: string): Promise<AnalyzeResult> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
   if (!accessToken) throw new Error("サインインが必要です");
 
-  const form = new FormData();
-  if (Platform.OS === "web") {
-    // On web, expo-audio's recorder.uri is a blob: URL and FormData is the
-    // browser's real implementation — it needs an actual Blob/File, not the
-    // {uri, name, type} object React Native's FormData polyfill expects.
-    const blob = await (await fetch(fileUri)).blob();
-    const extension = blob.type.split("/")[1]?.split(";")[0] || "webm";
-    form.append("audio", blob, `voice-diary.${extension}`);
-  } else {
-    form.append("audio", {
-      uri: fileUri,
-      name: "voice-diary.m4a",
-      type: mimeType,
-    } as unknown as Blob);
-  }
+  const { error: resetError } = await supabase
+    .from("voice_diary_analysis_jobs")
+    .update({ status: "pending", error_message: null })
+    .eq("id", jobId);
+  if (resetError) throw new Error(`再試行の準備に失敗しました: ${resetError.message}`);
 
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const res = await fetch(`${supabaseUrl}/functions/v1/analyze-voice-diary`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body: form,
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}) as { error?: string });
-    throw new Error(body.error ?? `解析に失敗しました (${res.status})`);
-  }
-  return res.json();
+  return waitForAnalysis(jobId, accessToken);
 }
 
 export async function saveVoiceDiary(
