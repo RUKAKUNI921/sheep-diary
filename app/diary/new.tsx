@@ -5,7 +5,6 @@ import {
   RecordingOptions,
   setAudioModeAsync,
   useAudioRecorder,
-  useAudioRecorderState,
 } from "expo-audio";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -121,7 +120,6 @@ function mockAnalyzeVoiceDiary(): Promise<AnalyzeResult> {
 export default function NewDiaryScreen() {
   const router = useRouter();
   const recorder = useAudioRecorder(VOICE_DIARY_RECORDING_OPTIONS);
-  const recorderState = useAudioRecorderState(recorder);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryJobId, setRetryJobId] = useState<string | null>(null);
@@ -292,17 +290,6 @@ export default function NewDiaryScreen() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {phase === "saving" && (
-          <>
-            <Text style={styles.title}>音声日記を録音</Text>
-
-            <View style={styles.recordArea}>
-              <View style={[styles.recordDot, recorderState.isRecording && styles.recordDotActive]} />
-              <Text style={styles.status}>羊を生成中...</Text>
-            </View>
-          </>
-        )}
-
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
         {phase === "retry" && (
@@ -415,31 +402,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F9F4",
     padding: 24,
     justifyContent: "center",
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 40,
-  },
-  recordArea: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  recordDot: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#eee",
-    marginBottom: 16,
-  },
-  recordDotActive: {
-    backgroundColor: "#E53935",
-  },
-  status: {
-    fontSize: 15,
-    color: "#666",
   },
   iconArea: {
     alignItems: "center",
